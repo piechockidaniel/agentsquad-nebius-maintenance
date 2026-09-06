@@ -1,0 +1,28 @@
+.git/
+.gitignore
+.vs/
+**/bin/
+**/obj/
+**/node_modules/
+**/.env
+**/.env.*
+**/appsettings.*.local.json
+**/secrets.json
+*.user
+*.suo
+__azurite_db_*.json
+
+# This worktree intentionally retains some staged-for-removal legacy folders until the next
+# commit. Keep them out of the release context, and make the deployed image depend only on the
+# focused maintenance application.
+src/*
+!src/AgentSquad.Agents/
+!src/AgentSquad.Host/
+!src/AgentSquad.Plugin.Tools.NebiusSandbox/
+tests/*
+!tests/AgentSquad.Tests.Unit/
+samples/*
+!samples/maintenance-fixture/
+docs/
+devops/
+infra/

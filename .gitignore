@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.dll
+*.pdb
+TestResults/
+.DS_Store
+appsettings.*.local.json
+.env
+.env.local
+node_modules
+graphify-out/
