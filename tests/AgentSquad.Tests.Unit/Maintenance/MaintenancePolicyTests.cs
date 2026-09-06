@@ -42,4 +42,22 @@ public sealed class MaintenancePolicyTests
         result.Allowed.Should().BeTrue();
         result.Advisory!.Id.Should().Be("GHSA-qj66-m88j-hmgj");
     }
+
+    [Fact]
+    public void Blocks_a_manifest_with_an_additional_direct_dependency()
+    {
+        var manifest = VulnerableManifest.Replace(
+            "</ItemGroup>",
+            "<PackageReference Include=\"Newtonsoft.Json\" Version=\"13.0.3\" /></ItemGroup>",
+            StringComparison.Ordinal);
+
+        new MaintenancePolicy().EvaluateManifest(manifest).Allowed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Exposes_only_the_three_deterministic_demo_scenarios()
+    {
+        MaintenanceScenarioCatalog.All.Select(x => x.Id).Should().BeEquivalentTo(
+            ["cache-repair", "unapproved-package", "baseline-test-failure"]);
+    }
 }

@@ -40,7 +40,8 @@ Useful non-secret overrides, normally left at their shipped defaults:
 | `AgentSquad__Maintenance__ModelId` | `nvidia/nemotron-3-super-120b-a12b` | Only when the Nebius project owner confirms a different NVIDIA model that is enabled for the key. |
 | `AgentSquad__Maintenance__ScheduleCron` | `30 7 * * 1-5` | To change the weekday maintenance time; the cron expression is evaluated in UTC. |
 | `AgentSquad__Maintenance__HistoryLimit` | `50` | To retain fewer or more in-memory evidence records (1–200). |
-| `NebiusSandbox__ImageRegistryUrl` | `docker://mcr.microsoft.com/dotnet/sdk:8.0` | Only if the controlled fixture needs a different pre-approved sandbox image. |
+| `AgentSquad__Maintenance__DefaultScenarioId` | `cache-repair` | Only to select a different deterministic Maintenance Lab scenario for the scheduled demo. |
+| `NebiusSandbox__ImageRegistryUrl` | `docker://mcr.microsoft.com/dotnet/sdk:8.0` | Only if the controlled Maintenance Lab needs a different pre-approved sandbox image. |
 
 Do not set `NebiusSandbox__Command` in the deployment; the image already installs the pinned `contree-mcp` command. Do not provide GitHub, Git, PR, deployment, Azure DevOps, or Teams credentials—this version does not use them.
 
@@ -63,7 +64,7 @@ Nebius supports custom public-registry images and provides a public web UI link 
 2. Confirm `GET /health` responds with `200`.
 3. Paste `AgentSquad__Web__AccessToken` into the console's **Console access token** field. The browser holds it only for the current session.
 4. Select **Check Nebius preflight**. It must show both the NVIDIA model and ConTree sandbox tools as ready.
-5. Run one repair. Capture the advisory, manifest-only diff, test output, clean scan, and sandbox snapshot ID.
+5. Run `cache-repair`. Capture the advisory, manifest-only diff, passing baseline and patched test output, clean scan, and Sandbox workspace snapshot ID. Optionally demonstrate `unapproved-package` (blocked before Sandbox mutation) and `baseline-test-failure` (fails before patch staging).
 
 If a preflight or repair fails, inspect the Container VM's Docker logs over SSH. Never paste the output into a public issue or recording without checking that it contains no secret.
 

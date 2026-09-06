@@ -15,7 +15,7 @@ public sealed class MaintenanceRunStore(IOptions<AgentSquadOptions> options)
     private readonly LinkedList<string> _order = [];
     private string? _activeId;
 
-    public MaintenanceRunSnapshot? TryStart(string trigger)
+    public MaintenanceRunSnapshot? TryStart(string trigger, string scenarioId)
     {
         lock (_gate)
         {
@@ -24,7 +24,7 @@ public sealed class MaintenanceRunStore(IOptions<AgentSquadOptions> options)
                 return null;
             }
 
-            var record = new MaintenanceRunRecord(Guid.NewGuid().ToString("N"), trigger);
+            var record = new MaintenanceRunRecord(Guid.NewGuid().ToString("N"), trigger, scenarioId);
             _records.Add(record.Id, record);
             _order.AddFirst(record.Id);
             _activeId = record.Id;
@@ -80,13 +80,14 @@ public sealed class MaintenanceRunStore(IOptions<AgentSquadOptions> options)
     }
 }
 
-public sealed class MaintenanceRunRecord(string id, string trigger)
+public sealed class MaintenanceRunRecord(string id, string trigger, string scenarioId)
 {
     private readonly List<MaintenanceToolStep> _steps = [];
 
     public string Id { get; } = id;
     public DateTimeOffset CreatedAt { get; } = DateTimeOffset.UtcNow;
     public string Trigger { get; } = trigger;
+    public string ScenarioId { get; } = scenarioId;
     public string Status { get; private set; } = MaintenanceRunStatuses.Queued;
     public string Phase { get; private set; } = "Queued";
     public string? AdvisoryId { get; private set; }
@@ -118,6 +119,7 @@ public sealed class MaintenanceRunRecord(string id, string trigger)
         Id,
         CreatedAt,
         Trigger,
+        ScenarioId,
         Status,
         Phase,
         AdvisoryId,

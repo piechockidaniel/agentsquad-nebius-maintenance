@@ -10,7 +10,7 @@ It finds one confirmed vulnerable dependency, applies only the approved patch in
 - **Nebius Token Factory Sandboxes** execute the staged manifest change, `dotnet test`, and post-patch vulnerability scan in isolation.
 - **Contree MCP** is the constrained Sandbox adapter. It exposes only image import, fixture sync, manifest staging, fixed commands, and evidence retrieval—not arbitrary shell access.
 
-The model does not choose the patch or commands. Deterministic policy permits only `Microsoft.Extensions.Caching.Memory` **8.0.0 → 8.0.1** for `GHSA-qj66-m88j-hmgj`.
+The model does not choose the patch or commands. Deterministic policy permits exactly one direct dependency in the controlled application manifest: `Microsoft.Extensions.Caching.Memory` **8.0.0 → 8.0.1** for `GHSA-qj66-m88j-hmgj`.
 
 ## The maintenance squad
 
@@ -28,8 +28,8 @@ An unexpected package, version, or advisory ends as `Blocked`. A Sandbox, test, 
 Prerequisites: .NET 10 SDK, a Nebius Token Factory API key, and an authenticated local `contree-mcp` installation. Obtain and store Sandbox IAM/project credentials separately from the inference key; never put either secret in source control.
 
 ```powershell
-git clone <your-public-repository-url>
-cd agents-squad
+git clone https://github.com/piechockidaniel/agentsquad-nebius-maintenance.git
+cd agentsquad-nebius-maintenance
 dotnet dev-certs https --trust
 dotnet user-secrets set --project src/AgentSquad.Host "AgentSquad:TokenFactory:ApiKey" "<Token Factory key>"
 dotnet user-secrets set --project src/AgentSquad.Host "AgentSquad:Maintenance:Enabled" "true"
@@ -53,16 +53,17 @@ See the operator-ready [Nebius deployment guide](deploy/nebius/README.md) for th
 ```powershell
 dotnet build AgentSquad.sln
 dotnet test --solution AgentSquad.sln --no-build
-dotnet test --project samples/maintenance-fixture/DependencyMaintenanceFixture.csproj
+dotnet test samples/maintenance-lab/scenarios/cache-repair/tests/MaintenanceLab.Tests.csproj
 ```
 
-The fixture intentionally produces NuGet warning `NU1903` before a repair; that is the vulnerability the Sandbox flow must remove from its staged copy.
+The `cache-repair` scenario intentionally produces NuGet warning `NU1903` before a repair; that is the vulnerability the Sandbox flow must remove from its staged copy. See the [Maintenance Lab](samples/maintenance-lab/README.md) for the three controlled scenarios.
 
 ## API
 
 - `GET /health`
 - `GET /maintenance/preflight`
-- `POST /maintenance/runs` — returns `202`; only one run may be active (`409` otherwise)
+- `GET /maintenance/scenarios`
+- `POST /maintenance/runs?scenario=<id>` — returns `202`; only one run may be active (`409` otherwise)
 - `GET /maintenance/runs`
 - `GET /maintenance/runs/{id}`
 
@@ -71,9 +72,10 @@ All `/maintenance/*` endpoints require the `X-AgentSquad-Access-Token` header in
 ## Three-minute demo
 
 1. Show the preflight: Token Factory model availability and Contree Sandbox connectivity.
-2. Run the repair from the console.
-3. Show `GHSA-qj66-m88j-hmgj`, the manifest-only diff, Sandbox test output, clean rescan, and snapshot ID.
-4. End on `Remediated — Sandbox-only remediation verified`; no host repository or deployment changed.
+2. Select **Known dependency repair** and run it. Show `GHSA-qj66-m88j-hmgj`, the manifest-only diff, passing baseline and patched tests, clean rescan, and Sandbox workspace snapshot ID.
+3. Select **Unapproved second dependency**. It ends `Blocked` at the policy gate and never requests a Sandbox mutation.
+4. Select **Baseline test failure**. Its intentional pre-existing regression ends `Failed` before the patch is staged.
+5. End on the successful run: `Remediated — Sandbox-only remediation verified`; no host repository or deployment changed.
 
 ## Project layout
 
@@ -81,7 +83,7 @@ All `/maintenance/*` endpoints require the `X-AgentSquad-Access-Token` header in
 src/AgentSquad.Host/                  web console and HTTP API
 src/AgentSquad.Agents/                coordinator, policy, Sentinel, and scheduler
 src/AgentSquad.Plugin.Tools.NebiusSandbox/  constrained Contree MCP adapter
-samples/maintenance-fixture/          controlled vulnerable .NET 8 fixture
+samples/maintenance-lab/              source-owned success and fail-closed .NET 8 demo scenarios
 tests/AgentSquad.Tests.Unit/          policy and run-state tests
 ```
 

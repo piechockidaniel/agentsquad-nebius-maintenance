@@ -31,6 +31,7 @@ public sealed record MaintenanceRunSnapshot(
     string Id,
     DateTimeOffset CreatedAt,
     string Trigger,
+    string ScenarioId,
     string Status,
     string Phase,
     string? AdvisoryId,
@@ -43,7 +44,8 @@ public sealed record MaintenanceStartResult(
     bool Started,
     bool Enabled,
     MaintenanceRunSnapshot? Run,
-    string? Error = null);
+    string? Error = null,
+    int? StatusCode = null);
 
 public sealed record MaintenancePreflight(
     bool Ready,

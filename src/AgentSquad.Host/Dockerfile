@@ -15,7 +15,7 @@ COPY src/AgentSquad.Plugin.Tools.NebiusSandbox/AgentSquad.NebiusSandbox.csproj s
 COPY src/AgentSquad.Plugin.Tools.NebiusSandbox/ContreeMaintenanceSandbox.cs src/AgentSquad.Plugin.Tools.NebiusSandbox/
 COPY tests/AgentSquad.Tests.Unit/GlobalUsings.cs tests/AgentSquad.Tests.Unit/
 COPY tests/AgentSquad.Tests.Unit/Maintenance/ tests/AgentSquad.Tests.Unit/Maintenance/
-COPY samples/maintenance-fixture/ samples/maintenance-fixture/
+COPY samples/maintenance-lab/ samples/maintenance-lab/
 
 FROM build AS test
 RUN dotnet test --solution AgentSquad.sln -c Release --no-restore

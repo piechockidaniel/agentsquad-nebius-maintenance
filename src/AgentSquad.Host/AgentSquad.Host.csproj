@@ -4,5 +4,5 @@
     <ProjectReference Include="..\AgentSquad.Agents\AgentSquad.Agents.csproj" />
     <ProjectReference Include="..\AgentSquad.Plugin.Tools.NebiusSandbox\AgentSquad.NebiusSandbox.csproj" />
   </ItemGroup>
-  <ItemGroup><Content Include="..\..\samples\maintenance-fixture\**\*" Link="maintenance-fixture\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
+  <ItemGroup><Content Include="..\..\samples\maintenance-lab\**\*" Link="maintenance-lab\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
 </Project>

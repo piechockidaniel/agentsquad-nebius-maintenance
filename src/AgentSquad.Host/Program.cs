@@ -34,10 +34,12 @@ maintenance.AddEndpointFilter(async (context, next) =>
 });
 
 maintenance.MapGet("/preflight", async (MaintenanceService service, CancellationToken ct) => Results.Ok(await service.GetPreflightAsync(ct)));
-maintenance.MapPost("/runs", (MaintenanceService service) =>
+maintenance.MapGet("/scenarios", () => Results.Ok(MaintenanceScenarioCatalog.All));
+maintenance.MapPost("/runs", (string? scenario, MaintenanceService service) =>
 {
-    var result = service.Start(MaintenanceRunTriggers.Manual);
+    var result = service.Start(MaintenanceRunTriggers.Manual, scenario);
     return !result.Enabled ? Results.Problem(result.Error, statusCode: 503)
+        : result.StatusCode is { } statusCode ? Results.Problem(result.Error, statusCode: statusCode)
         : !result.Started ? Results.Conflict(new { error = result.Error })
         : Results.Accepted($"/maintenance/runs/{result.Run!.Id}", result.Run);
 });

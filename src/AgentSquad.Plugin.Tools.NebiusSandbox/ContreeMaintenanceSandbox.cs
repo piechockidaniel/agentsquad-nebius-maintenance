@@ -39,6 +39,9 @@ public sealed class ContreeMaintenanceSandbox(IConfiguration configuration) : IM
             if (image is null || state is null) return new(false, null, steps, "Sandbox image or fixture sync failed.");
             var baseline = await Run($"dotnet list {request.ProjectFileName} package --vulnerable --include-transitive", image, state.Value, null, true, cancellationToken);
             steps.Add(new("baseline_scan", Ok(baseline), "Scanned the unmodified fixture.", Clip(baseline)));
+            var baselineTest = await Run($"dotnet test {request.TestProjectFileName}", image, state.Value, null, true, cancellationToken);
+            steps.Add(new("baseline_tests", Ok(baselineTest), "Verified that the unmodified scenario has a passing test baseline.", Clip(baselineTest)));
+            if (!Ok(baselineTest)) return new(false, null, steps, "Baseline tests failed; no patch was staged.");
             var upload = await Call("upload", new Dictionary<string, object?> { ["content"] = request.PatchedManifest }, cancellationToken);
             var patch = Value(upload, "uuid");
             if (patch is null) return new(false, null, steps, "Sandbox manifest staging failed.");
@@ -49,7 +52,7 @@ public sealed class ContreeMaintenanceSandbox(IConfiguration configuration) : IM
             var rescan = await Run($"dotnet list {request.ProjectFileName} package --vulnerable --include-transitive", image, state.Value, files, false, cancellationToken);
             var clean = Ok(rescan) && !rescan.Contains(request.AdvisoryId, StringComparison.OrdinalIgnoreCase);
             steps.Add(new("post_patch_scan", clean, "Confirmed the advisory is absent after the patch.", Clip(rescan)));
-            return new(clean, Value(rescan, "result_image"), steps, clean ? null : "Post-patch scan did not clear the advisory.");
+            return new(clean, state.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), steps, clean ? null : "Post-patch scan did not clear the advisory.");
         }
         catch (Exception ex) { return new(false, null, steps, $"Sandbox workflow failed: {EvidenceSanitizer.Clean(ex.Message)}"); }
     }

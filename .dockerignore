@@ -17,12 +17,17 @@ __azurite_db_*.json
 # focused maintenance application.
 src/*
 !src/AgentSquad.Agents/
+!src/AgentSquad.Agents/**
 !src/AgentSquad.Host/
+!src/AgentSquad.Host/**
 !src/AgentSquad.Plugin.Tools.NebiusSandbox/
+!src/AgentSquad.Plugin.Tools.NebiusSandbox/**
 tests/*
 !tests/AgentSquad.Tests.Unit/
+!tests/AgentSquad.Tests.Unit/**
 samples/*
-!samples/maintenance-fixture/
+!samples/maintenance-lab/
+!samples/maintenance-lab/**
 docs/
 devops/
 infra/

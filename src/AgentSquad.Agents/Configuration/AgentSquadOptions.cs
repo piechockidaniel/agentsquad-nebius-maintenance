@@ -18,7 +18,7 @@ public sealed class TokenFactoryOptions
 public sealed class MaintenanceOptions
 {
     public bool Enabled { get; set; }
-    public string FixtureRoot { get; set; } = "maintenance-fixture";
+    public string DefaultScenarioId { get; set; } = "cache-repair";
     public string ModelId { get; set; } = "nvidia/nemotron-3-super-120b-a12b";
     [Range(1, 200)] public int HistoryLimit { get; set; } = 50;
     public string ScheduleCron { get; set; } = "30 7 * * 1-5";

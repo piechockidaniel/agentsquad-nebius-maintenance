@@ -16,7 +16,7 @@ public sealed class MaintenanceScheduler(MaintenanceService maintenance, IOption
             var next = cron.GetNextOccurrence(DateTimeOffset.UtcNow, TimeZoneInfo.Utc);
             if (next is null) return;
             await Task.Delay(next.Value - DateTimeOffset.UtcNow, stoppingToken);
-            maintenance.Start(MaintenanceRunTriggers.Scheduled);
+            maintenance.Start(MaintenanceRunTriggers.Scheduled, options.Value.Maintenance.DefaultScenarioId);
         }
     }
 }

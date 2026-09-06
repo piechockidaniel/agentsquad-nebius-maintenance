@@ -21,15 +21,22 @@ public sealed class MaintenanceService(
 {
     private readonly MaintenanceOptions _options = options.Value.Maintenance;
 
-    public MaintenanceStartResult Start(string trigger)
+    public MaintenanceStartResult Start(string trigger, string? scenarioId = null)
     {
+        var requestedScenarioId = scenarioId ?? _options.DefaultScenarioId;
+        if (!MaintenanceScenarioCatalog.TryGet(requestedScenarioId, out var scenario))
+        {
+            return new MaintenanceStartResult(false, _options.Enabled, null,
+                $"Unknown maintenance scenario '{requestedScenarioId}'.", 400);
+        }
+
         if (!_options.Enabled)
         {
             return new MaintenanceStartResult(false, false, null,
                 "Maintenance v1 is disabled. Set AgentSquad:Maintenance:Enabled=true after configuring Nebius credentials.");
         }
 
-        var run = store.TryStart(trigger);
+        var run = store.TryStart(trigger, scenario.Id);
         if (run is null)
         {
             return new MaintenanceStartResult(false, true, null, "A maintenance run is already active.");
@@ -65,7 +72,13 @@ public sealed class MaintenanceService(
         try
         {
             store.Update(runId, run => run.Begin(MaintenanceRunStatuses.Scanning, "Dependency Sentinel: reading fixture"));
-            var fixtureRoot = ResolveFixtureRoot();
+            if (!MaintenanceScenarioCatalog.TryGet(store.Get(runId)?.ScenarioId, out var scenario))
+            {
+                Block(runId, "The requested maintenance scenario is not registered.");
+                return;
+            }
+
+            var fixtureRoot = ResolveFixtureRoot(scenario);
             var manifestPath = Path.Combine(fixtureRoot, MaintenancePolicy.FixtureProjectFileName);
             var testProjectPath = Path.Combine(fixtureRoot, MaintenancePolicy.FixtureTestProjectFileName);
             if (!File.Exists(manifestPath) || !File.Exists(testProjectPath))
@@ -178,18 +191,18 @@ public sealed class MaintenanceService(
         }
     }
 
-    private string ResolveFixtureRoot()
+    private static string ResolveFixtureRoot(MaintenanceScenario scenario)
     {
-        if (Path.IsPathRooted(_options.FixtureRoot))
+        if (Path.IsPathRooted(scenario.RelativeFixtureRoot))
         {
-            throw new InvalidOperationException("Maintenance fixture path must be relative to the deployed host binaries.");
+            throw new InvalidOperationException("Maintenance scenario path must be relative to the deployed host binaries.");
         }
 
         var baseDirectory = Path.GetFullPath(AppContext.BaseDirectory);
-        var root = Path.GetFullPath(Path.Combine(baseDirectory, _options.FixtureRoot));
+        var root = Path.GetFullPath(Path.Combine(baseDirectory, scenario.RelativeFixtureRoot));
         if (!root.StartsWith(baseDirectory, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Maintenance fixture path escapes the deployed host binaries.");
+            throw new InvalidOperationException("Maintenance scenario path escapes the deployed host binaries.");
         }
         return root;
     }

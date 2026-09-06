@@ -12,18 +12,25 @@ public sealed class MaintenancePolicy
     public const string VulnerableVersion = "8.0.0";
     public const string PatchedVersion = "8.0.1";
     public const string AdvisoryId = "GHSA-qj66-m88j-hmgj";
-    public const string FixtureProjectFileName = "DependencyMaintenanceFixture.csproj";
-    public const string FixtureTestProjectFileName = FixtureProjectFileName;
+    public const string FixtureProjectFileName = "MaintenanceLab.Api.csproj";
+    public const string FixtureTestProjectFileName = "tests/MaintenanceLab.Tests.csproj";
 
     public MaintenancePolicyDecision EvaluateManifest(string manifest)
     {
         try
         {
             var document = XDocument.Parse(manifest, LoadOptions.PreserveWhitespace);
-            var package = document.Descendants()
-                .SingleOrDefault(element =>
-                    element.Name.LocalName == "PackageReference" &&
-                    string.Equals(element.Attribute("Include")?.Value, PackageId, StringComparison.Ordinal));
+            var packageReferences = document.Descendants()
+                .Where(element => element.Name.LocalName == "PackageReference")
+                .ToArray();
+            if (packageReferences.Length != 1)
+            {
+                return MaintenancePolicyDecision.Blocked(
+                    $"Policy permits exactly one direct dependency in the controlled application manifest; found {packageReferences.Length}.");
+            }
+
+            var package = packageReferences.SingleOrDefault(element =>
+                string.Equals(element.Attribute("Include")?.Value, PackageId, StringComparison.Ordinal));
 
             if (package is null)
             {
