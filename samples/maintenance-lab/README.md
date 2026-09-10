@@ -13,5 +13,8 @@ The lab contains no exploit code. It uses the known advisory `GHSA-qj66-m88j-hmg
 Run the successful scenario locally:
 
 ```powershell
-dotnet test samples/maintenance-lab/scenarios/cache-repair/tests/MaintenanceLab.Tests.csproj
+dotnet build samples/maintenance-lab/scenarios/cache-repair/tests/MaintenanceLab.Tests.csproj
+dotnet vstest .\samples\maintenance-lab\scenarios\cache-repair\tests\bin\Debug\net8.0\MaintenanceLab.Tests.dll --TestAdapterPath:.\samples\maintenance-lab\scenarios\cache-repair\tests\bin\Debug\net8.0
 ```
+
+The explicit VSTest command is intentional: this repository configures the Microsoft Testing Platform runner, for which a plain `dotnet test` does not discover this fixture's xUnit tests locally.

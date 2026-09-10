@@ -13,6 +13,7 @@ public sealed class MaintenanceService(
     MaintenanceRunStore store,
     MaintenancePolicy policy,
     IPackageSecurityLookup securityLookup,
+    ITavilySecurityResearch tavilyResearch,
     IMaintenanceSandbox sandbox,
     IMaintenanceModelProbe modelProbe,
     IMaintenanceNarrator narrator,
@@ -33,7 +34,8 @@ public sealed class MaintenanceService(
         if (!_options.Enabled)
         {
             return new MaintenanceStartResult(false, false, null,
-                "Maintenance v1 is disabled. Set AgentSquad:Maintenance:Enabled=true after configuring Nebius credentials.");
+                "Maintenance v1 is disabled. Set AgentSquad:Maintenance:Enabled=true after " +
+                "configuring Nebius credentials.");
         }
 
         var run = store.TryStart(trigger, scenario.Id);
@@ -54,24 +56,29 @@ public sealed class MaintenanceService(
         if (!_options.Enabled)
         {
             return new MaintenancePreflight(false, _options.ModelId,
-                "Maintenance v1 is disabled.", "Nebius Sandbox was not checked.", []);
+                "Maintenance v1 is disabled.", "Nebius Sandbox was not checked.", [], false,
+                "Tavily research was not checked.");
         }
 
         var model = await modelProbe.ProbeAsync(cancellationToken);
         var sandboxState = await sandbox.PreflightAsync(cancellationToken);
+        var tavily = await tavilyResearch.GetPreflightAsync(cancellationToken);
         return new MaintenancePreflight(
             model.Available && sandboxState.Available,
             _options.ModelId,
             model.Detail,
             sandboxState.Detail,
-            sandboxState.AvailableTools);
+            sandboxState.AvailableTools,
+            tavily.Configured,
+            tavily.Detail);
     }
 
     private async Task ExecuteAsync(string runId)
     {
         try
         {
-            store.Update(runId, run => run.Begin(MaintenanceRunStatuses.Scanning, "Dependency Sentinel: reading fixture"));
+            store.Update(runId, run => run.Begin(MaintenanceRunStatuses.Scanning,
+                "Dependency Sentinel: reading fixture"));
             if (!MaintenanceScenarioCatalog.TryGet(store.Get(runId)?.ScenarioId, out var scenario))
             {
                 Block(runId, "The requested maintenance scenario is not registered.");
@@ -122,6 +129,7 @@ public sealed class MaintenanceService(
             }
 
             store.Update(runId, run => run.SetAdvisory(decision.Advisory.Id));
+            await AddTavilyResearchAsync(runId, decision.Advisory);
             await AddNarrationAsync(runId, decision.Advisory);
             store.Update(runId, run => run.AddStep(
                 "manifest_diff", "ok", "The proposed change is a single direct dependency patch.",
@@ -166,6 +174,32 @@ public sealed class MaintenanceService(
         }
     }
 
+    private async Task AddTavilyResearchAsync(string runId, PackageSecurityAdvisory advisory)
+    {
+        try
+        {
+            var research = await tavilyResearch.ResearchAsync(advisory);
+            store.Update(runId, run => run.AddStep(
+                "tavily_security_research",
+                research.Available ? "ok" : "unavailable",
+                research.Detail,
+                research.Sources.Count == 0 ? null : EvidenceSanitizer.Clean(
+                    System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        research.RequestId,
+                        research.CreditsUsed,
+                        research.Sources
+                    }))));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var error = EvidenceSanitizer.Clean(ex.Message);
+            logger.LogWarning("Tavily security research failed for maintenance run {RunId}: {Error}", runId, error);
+            store.Update(runId, run => run.AddStep("tavily_security_research", "unavailable",
+                "Supplementary Tavily security research was unavailable; repair policy remains unchanged.", error));
+        }
+    }
+
     private async Task AddNarrationAsync(string runId, PackageSecurityAdvisory advisory)
     {
         try
@@ -195,7 +229,8 @@ public sealed class MaintenanceService(
     {
         if (Path.IsPathRooted(scenario.RelativeFixtureRoot))
         {
-            throw new InvalidOperationException("Maintenance scenario path must be relative to the deployed host binaries.");
+            throw new InvalidOperationException("Maintenance scenario path must be relative " +
+                "to the deployed host binaries.");
         }
 
         var baseDirectory = Path.GetFullPath(AppContext.BaseDirectory);

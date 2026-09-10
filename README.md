@@ -9,6 +9,7 @@ It finds one confirmed vulnerable dependency, applies only the approved patch in
 - **Nebius Token Factory** serves `nvidia/nemotron-3-super-120b-a12b` for the short, evidence-grounded risk explanation.
 - **Nebius Token Factory Sandboxes** execute the staged manifest change, `dotnet test`, and post-patch vulnerability scan in isolation.
 - **Contree MCP** is the constrained Sandbox adapter. It exposes only image import, fixture sync, manifest staging, fixed commands, and evidence retrieval—not arbitrary shell access.
+- **Tavily Search** optionally supplies up to three bounded supplementary security sources after the deterministic policy confirms an advisory. It cannot approve or alter a repair.
 
 The model does not choose the patch or commands. Deterministic policy permits exactly one direct dependency in the controlled application manifest: `Microsoft.Extensions.Caching.Memory` **8.0.0 → 8.0.1** for `GHSA-qj66-m88j-hmgj`.
 
@@ -25,20 +26,32 @@ An unexpected package, version, or advisory ends as `Blocked`. A Sandbox, test, 
 
 ## Start locally
 
-Prerequisites: .NET 10 SDK, a Nebius Token Factory API key, and an authenticated local `contree-mcp` installation. Obtain and store Sandbox IAM/project credentials separately from the inference key; never put either secret in source control.
+Prerequisites: .NET 10 SDK, a Nebius Token Factory API key, and an authenticated local `contree-mcp` installation. Obtain and store Sandbox IAM/project credentials separately from the inference key; never put either secret in source control. To include the optional Tavily bonus-evidence path, also obtain a Tavily API key.
+
+If PowerShell reports that `contree-mcp` is not recognized, install the pinned runtime and verify that it is on `PATH` before starting AgentSquad:
+
+```powershell
+uv tool install --force --with "mcp==1.9.4" contree-mcp==0.2.0
+Get-Command contree-mcp
+```
+
+AgentSquad starts that command itself as an MCP stdio process; do not start it separately. The explicit `mcp==1.9.4` pin is required because ConTree 0.2.0 is incompatible with MCP Python SDK 2.x. If you use a different installation location, set `NebiusSandbox__Command` to the full path of its executable for the terminal session.
 
 ```powershell
 git clone https://github.com/piechockidaniel/agentsquad-nebius-maintenance.git
 cd agentsquad-nebius-maintenance
 dotnet dev-certs https --trust
 dotnet user-secrets set --project src/AgentSquad.Host "AgentSquad:TokenFactory:ApiKey" "<Token Factory key>"
+dotnet user-secrets set --project src/AgentSquad.Host "AgentSquad:Tavily:ApiKey" "<Tavily key>"
 dotnet user-secrets set --project src/AgentSquad.Host "AgentSquad:Maintenance:Enabled" "true"
 dotnet run --project src/AgentSquad.Host
 ```
 
 Open `https://localhost:53245`, press **Check Nebius preflight**, then run the repair only when preflight is ready. The default scheduled scan is weekdays at 07:30 UTC.
 
-The Token Factory key can instead be supplied as the runtime environment variable `NEBIUS_TOKEN_FACTORY_API_KEY`. The app never logs it. The separate Contree credentials are consumed by `contree-mcp` according to its Nebius configuration.
+The Token Factory key can instead be supplied as the runtime environment variable `NEBIUS_TOKEN_FACTORY_API_KEY`; the optional Tavily key can use `TAVILY_API_KEY`. The app never logs either. The separate Contree credentials are consumed by `contree-mcp` according to its Nebius configuration.
+
+The first approved repair looks for the reusable `agentsquad/maintenance/dotnet-sdk:8.0` Sandbox image. Only when it is absent does it import the fixed public .NET 8 SDK image, explicitly acknowledging that anonymous public-registry access may be rate-limited; later runs reuse the tagged image. Before sync, it stages only the fixture's `.cs` and `.csproj` source files, never generated `bin`/`obj` output, and attaches them at fixed Linux container paths. These are fixed infrastructure steps, not agent-selected images or arbitrary registry pulls.
 
 In the Development launch profile, the maintenance API is open for local iteration. A deployed production container requires a separate 32+ character `AgentSquad__Web__AccessToken`; enter it in the console before using the maintenance APIs. This token is neither a Nebius credential nor an approval mechanism—it prevents an unknown visitor to a public demo URL from starting a Sandbox run.
 
@@ -52,11 +65,14 @@ See the operator-ready [Nebius deployment guide](deploy/nebius/README.md) for th
 
 ```powershell
 dotnet build AgentSquad.sln
-dotnet test --solution AgentSquad.sln --no-build
-dotnet test samples/maintenance-lab/scenarios/cache-repair/tests/MaintenanceLab.Tests.csproj
+dotnet vstest .\tests\AgentSquad.Tests.Unit\bin\Debug\net10.0\AgentSquad.Tests.Unit.dll --TestAdapterPath:.\tests\AgentSquad.Tests.Unit\bin\Debug\net10.0
+dotnet build samples/maintenance-lab/scenarios/cache-repair/tests/MaintenanceLab.Tests.csproj
+dotnet vstest .\samples\maintenance-lab\scenarios\cache-repair\tests\bin\Debug\net8.0\MaintenanceLab.Tests.dll --TestAdapterPath:.\samples\maintenance-lab\scenarios\cache-repair\tests\bin\Debug\net8.0
 ```
 
 The `cache-repair` scenario intentionally produces NuGet warning `NU1903` before a repair; that is the vulnerability the Sandbox flow must remove from its staged copy. See the [Maintenance Lab](samples/maintenance-lab/README.md) for the three controlled scenarios.
+
+For a submission-ready recording and the remaining Devpost checks, see the [video script](docs/SUBMISSION_VIDEO.md) and [submission checklist](docs/SUBMISSION_CHECKLIST.md).
 
 ## API
 
@@ -71,11 +87,7 @@ All `/maintenance/*` endpoints require the `X-AgentSquad-Access-Token` header in
 
 ## Three-minute demo
 
-1. Show the preflight: Token Factory model availability and Contree Sandbox connectivity.
-2. Select **Known dependency repair** and run it. Show `GHSA-qj66-m88j-hmgj`, the manifest-only diff, passing baseline and patched tests, clean rescan, and Sandbox workspace snapshot ID.
-3. Select **Unapproved second dependency**. It ends `Blocked` at the policy gate and never requests a Sandbox mutation.
-4. Select **Baseline test failure**. Its intentional pre-existing regression ends `Failed` before the patch is staged.
-5. End on the successful run: `Remediated — Sandbox-only remediation verified`; no host repository or deployment changed.
+Use the [timed recording script](docs/SUBMISSION_VIDEO.md). It shows one successful live repair with Tavily supplementary evidence and the two fail-closed paths, ending with `Remediated — Sandbox-only remediation verified`. No host repository or deployment changes.
 
 ## Project layout
 

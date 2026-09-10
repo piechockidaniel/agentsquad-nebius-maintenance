@@ -3,6 +3,10 @@
 .vs/
 **/bin/
 **/obj/
+**/bin
+**/obj
+**/bin/**
+**/obj/**
 **/node_modules/
 **/.env
 **/.env.*

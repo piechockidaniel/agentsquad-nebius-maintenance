@@ -26,7 +26,8 @@ public sealed class MaintenancePolicy
             if (packageReferences.Length != 1)
             {
                 return MaintenancePolicyDecision.Blocked(
-                    $"Policy permits exactly one direct dependency in the controlled application manifest; found {packageReferences.Length}.");
+                    $"Policy permits exactly one direct dependency in the controlled application manifest; " +
+                    $"found {packageReferences.Length}.");
             }
 
             var package = packageReferences.SingleOrDefault(element =>
@@ -34,14 +35,16 @@ public sealed class MaintenancePolicy
 
             if (package is null)
             {
-                return MaintenancePolicyDecision.Blocked($"The controlled fixture does not directly reference {PackageId}.");
+                return MaintenancePolicyDecision.Blocked($"The controlled fixture does not directly" +
+                    $" reference {PackageId}.");
             }
 
             var versionAttribute = package.Attribute("Version");
             if (!string.Equals(versionAttribute?.Value, VulnerableVersion, StringComparison.Ordinal))
             {
                 return MaintenancePolicyDecision.Blocked(
-                    $"Policy only permits {PackageId} {VulnerableVersion}; found '{versionAttribute?.Value ?? "unspecified"}'.");
+                    $"Policy only permits {PackageId} {VulnerableVersion};" +
+                    $" found '{versionAttribute?.Value ?? "unspecified"}'.");
             }
 
             versionAttribute!.Value = PatchedVersion;

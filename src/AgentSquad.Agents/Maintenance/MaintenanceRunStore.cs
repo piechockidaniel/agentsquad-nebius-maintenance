@@ -9,7 +9,7 @@ namespace AgentSquad.Agents.Maintenance;
 /// </summary>
 public sealed class MaintenanceRunStore(IOptions<AgentSquadOptions> options)
 {
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly int _capacity = options.Value.Maintenance.HistoryLimit;
     private readonly Dictionary<string, MaintenanceRunRecord> _records = new(StringComparer.Ordinal);
     private readonly LinkedList<string> _order = [];
@@ -46,10 +46,9 @@ public sealed class MaintenanceRunStore(IOptions<AgentSquadOptions> options)
         lock (_gate)
         {
             var effective = Math.Clamp(limit ?? _capacity, 1, _capacity);
-            return _order.Take(effective)
+            return [.. _order.Take(effective)
                 .Where(_records.ContainsKey)
-                .Select(id => _records[id].Snapshot())
-                .ToArray();
+                .Select(id => _records[id].Snapshot())];
         }
     }
 
@@ -125,6 +124,6 @@ public sealed class MaintenanceRunRecord(string id, string trigger, string scena
         AdvisoryId,
         Summary,
         SandboxSnapshotId,
-        _steps.ToArray(),
+        [.. _steps],
         Error);
 }

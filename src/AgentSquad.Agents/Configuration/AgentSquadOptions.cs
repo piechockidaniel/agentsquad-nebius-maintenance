@@ -6,12 +6,19 @@ public sealed class AgentSquadOptions
 {
     public const string SectionName = "AgentSquad";
     public TokenFactoryOptions TokenFactory { get; set; } = new();
+    public TavilyOptions Tavily { get; set; } = new();
     public MaintenanceOptions Maintenance { get; set; } = new();
     public WebOptions Web { get; set; } = new();
 }
 
 public sealed class TokenFactoryOptions
 {
+    public string? ApiKey { get; set; }
+}
+
+public sealed class TavilyOptions
+{
+    /// <summary>Optional supplementary security-research key. It never expands repair policy.</summary>
     public string? ApiKey { get; set; }
 }
 

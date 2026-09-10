@@ -52,7 +52,9 @@ public sealed record MaintenancePreflight(
     string ModelId,
     string ModelDetail,
     string SandboxDetail,
-    IReadOnlyList<string> SandboxTools);
+    IReadOnlyList<string> SandboxTools,
+    bool TavilyConfigured,
+    string TavilyDetail);
 
 public sealed record MaintenanceModelPreflight(bool Available, string Detail);
 
