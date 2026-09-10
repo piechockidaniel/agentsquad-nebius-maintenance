@@ -47,6 +47,15 @@ maintenance.MapGet("/preflight", async (MaintenanceService service, Cancellation
 maintenance.MapGet("/scenarios", () =>
     Results.Ok(MaintenanceScenarioCatalog.All));
 
+maintenance.MapGet("/manual-checks", () =>
+    Results.Ok(ManualSandboxCheckCatalog.All.Select(check => new
+    {
+        check.Id,
+        check.Title,
+        check.Description,
+        check.ExpectedResult
+    })));
+
 maintenance.MapPost("/runs", (string? scenario, MaintenanceService service) =>
 {
     var result = service.Start(MaintenanceRunTriggers.Manual, scenario);
@@ -61,5 +70,15 @@ maintenance.MapGet("/runs", (MaintenanceService service, int? limit) =>
 
 maintenance.MapGet("/runs/{id}", (string id, MaintenanceService service) =>
     service.Get(id) is { } run ? Results.Ok(run) : Results.NotFound());
+
+maintenance.MapPost("/runs/{id}/manual-checks/{checkId}", (string id, string checkId, MaintenanceService service) =>
+{
+    var result = service.StartManualCheck(id, checkId);
+    return !result.Enabled ? Results.Problem(result.Error, statusCode: StatusCodes.Status503ServiceUnavailable)
+        : result.StatusCode is 404 ? Results.NotFound(new { error = result.Error })
+        : result.StatusCode is { } statusCode ? Results.Problem(result.Error, statusCode: statusCode)
+        : !result.Started ? Results.Conflict(new { error = result.Error })
+        : Results.Accepted($"/maintenance/runs/{id}", result.Check);
+});
 
 app.Run();

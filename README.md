@@ -47,11 +47,19 @@ dotnet user-secrets set --project src/AgentSquad.Host "AgentSquad:Maintenance:En
 dotnet run --project src/AgentSquad.Host
 ```
 
-Open `https://localhost:53245`, press **Check Nebius preflight**, then run the repair only when preflight is ready. The default scheduled scan is weekdays at 07:30 UTC.
+Open `https://localhost:53245`. **Step 1 — Preflight** begins automatically and the three provider badges start grey, turn orange while each probe is running, then show green when the connection is ready, red when a required service fails, or amber when the optional Tavily research key is absent. Once NVIDIA Token Factory and the Nebius Sandbox are ready, the three scenario cards open in **Step 2**; start one directly with its own **Run Path** button. The final step shows the live evidence only after a run starts. The default scheduled scan is weekdays at 07:30 UTC.
+
+Preflight uses a bounded, Polly-style browser resilience guard: each request has a 12-second limit; transient connection failures retry at 1, 2, 4, and 8 seconds (five probes total); then the console opens a 30-second circuit cooldown and sends no further requests. The active probe number and cooldown are visible in the console. Configuration and access failures are shown immediately rather than retried. Use **Check again** or **Retry connection** after correcting configuration.
 
 The Token Factory key can instead be supplied as the runtime environment variable `NEBIUS_TOKEN_FACTORY_API_KEY`; the optional Tavily key can use `TAVILY_API_KEY`. The app never logs either. The separate Contree credentials are consumed by `contree-mcp` according to its Nebius configuration.
 
 The first approved repair looks for the reusable `agentsquad/maintenance/dotnet-sdk:8.0` Sandbox image. Only when it is absent does it import the fixed public .NET 8 SDK image, explicitly acknowledging that anonymous public-registry access may be rate-limited; later runs reuse the tagged image. Before sync, it stages only the fixture's `.cs` and `.csproj` source files, never generated `bin`/`obj` output, and attaches them at fixed Linux container paths. These are fixed infrastructure steps, not agent-selected images or arbitrary registry pulls.
+
+## Manually test a repaired snapshot
+
+After a run reaches **Remediated**, Step 3 offers two optional manual checks: **Health check** and **Read work item 42**. Each button starts the repaired snapshot in a fresh disposable Nebius Sandbox, calls only the fixture's private `127.0.0.1` HTTP endpoint, and records the bounded response beside the original repair evidence.
+
+The console accepts no custom command, URL, port, request body, or code change. One Sandbox operation may run at a time, each repair keeps at most ten recorded manual checks, and a failed manual check remains separate from the original remediation result. Nothing is exposed publicly and the host workspace, Git, pull requests, and deployments remain untouched.
 
 In the Development launch profile, the maintenance API is open for local iteration. A deployed production container requires a separate 32+ character `AgentSquad__Web__AccessToken`; enter it in the console before using the maintenance APIs. This token is neither a Nebius credential nor an approval mechanism—it prevents an unknown visitor to a public demo URL from starting a Sandbox run.
 
@@ -79,9 +87,11 @@ For a submission-ready recording and the remaining Devpost checks, see the [vide
 - `GET /health`
 - `GET /maintenance/preflight`
 - `GET /maintenance/scenarios`
+- `GET /maintenance/manual-checks` — the fixed, loopback-only manual-check catalog
 - `POST /maintenance/runs?scenario=<id>` — returns `202`; only one run may be active (`409` otherwise)
 - `GET /maintenance/runs`
 - `GET /maintenance/runs/{id}`
+- `POST /maintenance/runs/{id}/manual-checks/{checkId}` — starts one allowed check against a remediated snapshot (`202`)
 
 All `/maintenance/*` endpoints require the `X-AgentSquad-Access-Token` header in Production. `GET /health` stays unauthenticated so Nebius and external uptime checks can establish that the container is alive.
 

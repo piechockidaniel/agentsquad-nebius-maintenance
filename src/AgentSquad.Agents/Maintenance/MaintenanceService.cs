@@ -41,7 +41,7 @@ public sealed class MaintenanceService(
         var run = store.TryStart(trigger, scenario.Id);
         if (run is null)
         {
-            return new MaintenanceStartResult(false, true, null, "A maintenance run is already active.");
+            return new MaintenanceStartResult(false, true, null, "A maintenance Sandbox operation is already active.");
         }
 
         _ = Task.Run(() => ExecuteAsync(run.Id));
@@ -50,6 +50,30 @@ public sealed class MaintenanceService(
 
     public MaintenanceRunSnapshot? Get(string id) => store.Get(id);
     public IReadOnlyList<MaintenanceRunSnapshot> Recent(int? limit) => store.Recent(limit);
+
+    public MaintenanceManualCheckStartResult StartManualCheck(string runId, string checkId)
+    {
+        if (!ManualSandboxCheckCatalog.TryGet(checkId, out var definition))
+        {
+            return new(false, _options.Enabled, null, $"Unknown manual Sandbox check '{checkId}'.", 400);
+        }
+
+        if (!_options.Enabled)
+        {
+            return new(false, false, null,
+                "Maintenance v1 is disabled. Set AgentSquad:Maintenance:Enabled=true after " +
+                "configuring Nebius credentials.", 503);
+        }
+
+        var result = store.TryStartManualCheck(runId, definition);
+        if (!result.Started || result.Check is null)
+        {
+            return result;
+        }
+
+        _ = Task.Run(() => ExecuteManualCheckAsync(runId, result.Check.Id, definition));
+        return result;
+    }
 
     public async Task<MaintenancePreflight> GetPreflightAsync(CancellationToken cancellationToken = default)
     {
@@ -171,6 +195,43 @@ public sealed class MaintenanceService(
             var error = EvidenceSanitizer.Clean(ex.Message) ?? "Unexpected maintenance failure.";
             logger.LogError("Maintenance run {RunId} failed: {Error}", runId, error);
             Fail(runId, error);
+        }
+    }
+
+    private async Task ExecuteManualCheckAsync(string runId, string manualCheckId,
+        ManualSandboxCheckDefinition definition)
+    {
+        try
+        {
+            store.UpdateManualCheck(runId, manualCheckId, check => check.Begin());
+            var run = store.Get(runId);
+            if (string.IsNullOrWhiteSpace(run?.SandboxSnapshotId))
+            {
+                store.UpdateManualCheck(runId, manualCheckId, check => check.Finish(false, null,
+                    "The remediated Sandbox snapshot is no longer available."));
+                return;
+            }
+
+            var result = await sandbox.RunManualCheckAsync(new MaintenanceSandboxManualCheckRequest(
+                run.SandboxSnapshotId,
+                definition.Id,
+                definition.Command));
+            store.UpdateManualCheck(runId, manualCheckId, check => check.Finish(
+                result.Succeeded,
+                EvidenceSanitizer.Clean(result.Output),
+                result.Succeeded ? null : EvidenceSanitizer.Clean(result.Error ?? result.Detail)));
+        }
+        catch (OperationCanceledException)
+        {
+            store.UpdateManualCheck(runId, manualCheckId, check => check.Finish(false, null,
+                "The manual Sandbox check was cancelled before a response was captured."));
+        }
+        catch (Exception ex)
+        {
+            var error = EvidenceSanitizer.Clean(ex.Message) ?? "Unexpected manual Sandbox check failure.";
+            logger.LogError("Manual Sandbox check {ManualCheckId} for run {RunId} failed: {Error}",
+                manualCheckId, runId, error);
+            store.UpdateManualCheck(runId, manualCheckId, check => check.Finish(false, null, error));
         }
     }
 

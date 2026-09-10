@@ -14,12 +14,13 @@ public sealed class MaintenanceRunStore(IOptions<AgentSquadOptions> options)
     private readonly Dictionary<string, MaintenanceRunRecord> _records = new(StringComparer.Ordinal);
     private readonly LinkedList<string> _order = [];
     private string? _activeId;
+    private string? _activeManualCheckId;
 
     public MaintenanceRunSnapshot? TryStart(string trigger, string scenarioId)
     {
         lock (_gate)
         {
-            if (_activeId is not null)
+            if (_activeId is not null || _activeManualCheckId is not null)
             {
                 return null;
             }
@@ -66,6 +67,57 @@ public sealed class MaintenanceRunStore(IOptions<AgentSquadOptions> options)
         }
     }
 
+    public MaintenanceManualCheckStartResult TryStartManualCheck(string runId, ManualSandboxCheckDefinition definition)
+    {
+        lock (_gate)
+        {
+            if (!_records.TryGetValue(runId, out var record))
+            {
+                return new(false, true, null, "The maintenance run was not found.", 404);
+            }
+
+            if (_activeId is not null || _activeManualCheckId is not null)
+            {
+                return new(false, true, null, "A maintenance Sandbox operation is already active.", 409);
+            }
+
+            if (!string.Equals(record.Status, MaintenanceRunStatuses.Remediated, StringComparison.Ordinal) ||
+                string.IsNullOrWhiteSpace(record.SandboxSnapshotId))
+            {
+                return new(false, true, null,
+                    "Manual checks are available only for a remediated run with a Sandbox snapshot.", 409);
+            }
+
+            if (record.ManualCheckCount >= 10)
+            {
+                return new(false, true, null,
+                    "This run has reached its limit of ten recorded manual Sandbox checks.", 409);
+            }
+
+            var check = record.StartManualCheck(definition);
+            _activeManualCheckId = check.Id;
+            return new(true, true, check);
+        }
+    }
+
+    public void UpdateManualCheck(string runId, string checkId, Action<MaintenanceManualCheckRecord> update)
+    {
+        lock (_gate)
+        {
+            if (!_records.TryGetValue(runId, out var record) || !record.TryGetManualCheck(checkId, out var check))
+            {
+                return;
+            }
+
+            update(check);
+            if (ManualSandboxCheckStatuses.IsTerminal(check.Status) && _activeManualCheckId == check.Id)
+            {
+                _activeManualCheckId = null;
+                TrimTerminalRecords();
+            }
+        }
+    }
+
     private void TrimTerminalRecords()
     {
         while (_order.Count > _capacity)
@@ -82,6 +134,7 @@ public sealed class MaintenanceRunStore(IOptions<AgentSquadOptions> options)
 public sealed class MaintenanceRunRecord(string id, string trigger, string scenarioId)
 {
     private readonly List<MaintenanceToolStep> _steps = [];
+    private readonly List<MaintenanceManualCheckRecord> _manualChecks = [];
 
     public string Id { get; } = id;
     public DateTimeOffset CreatedAt { get; } = DateTimeOffset.UtcNow;
@@ -93,6 +146,7 @@ public sealed class MaintenanceRunRecord(string id, string trigger, string scena
     public string? Summary { get; private set; }
     public string? SandboxSnapshotId { get; private set; }
     public string? Error { get; private set; }
+    public int ManualCheckCount => _manualChecks.Count;
 
     public void Begin(string status, string phase)
     {
@@ -106,6 +160,19 @@ public sealed class MaintenanceRunRecord(string id, string trigger, string scena
     public void SetAdvisory(string advisoryId) => AdvisoryId = advisoryId;
     public void SetSummary(string? summary) => Summary = summary;
     public void SetSandboxSnapshot(string? sandboxSnapshotId) => SandboxSnapshotId = sandboxSnapshotId;
+
+    public MaintenanceManualCheckSnapshot StartManualCheck(ManualSandboxCheckDefinition definition)
+    {
+        var check = new MaintenanceManualCheckRecord(Guid.NewGuid().ToString("N"), definition);
+        _manualChecks.Add(check);
+        return check.Snapshot();
+    }
+
+    public bool TryGetManualCheck(string id, out MaintenanceManualCheckRecord check)
+    {
+        check = _manualChecks.FirstOrDefault(candidate => candidate.Id == id)!;
+        return check is not null;
+    }
 
     public void Finish(string status, string phase, string? error = null)
     {
@@ -125,5 +192,42 @@ public sealed class MaintenanceRunRecord(string id, string trigger, string scena
         Summary,
         SandboxSnapshotId,
         [.. _steps],
+        [.. _manualChecks.Select(check => check.Snapshot())],
+        Error);
+}
+
+public sealed class MaintenanceManualCheckRecord(string id, ManualSandboxCheckDefinition definition)
+{
+    public string Id { get; } = id;
+    public string CheckId { get; } = definition.Id;
+    public string Title { get; } = definition.Title;
+    public string Description { get; } = definition.Description;
+    public string ExpectedResult { get; } = definition.ExpectedResult;
+    public string Status { get; private set; } = ManualSandboxCheckStatuses.Queued;
+    public DateTimeOffset CreatedAt { get; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? CompletedAt { get; private set; }
+    public string? Output { get; private set; }
+    public string? Error { get; private set; }
+
+    public void Begin() => Status = ManualSandboxCheckStatuses.Running;
+
+    public void Finish(bool succeeded, string? output = null, string? error = null)
+    {
+        Status = succeeded ? ManualSandboxCheckStatuses.Passed : ManualSandboxCheckStatuses.Failed;
+        Output = output;
+        Error = error;
+        CompletedAt = DateTimeOffset.UtcNow;
+    }
+
+    public MaintenanceManualCheckSnapshot Snapshot() => new(
+        Id,
+        CheckId,
+        Title,
+        Description,
+        ExpectedResult,
+        Status,
+        CreatedAt,
+        CompletedAt,
+        Output,
         Error);
 }

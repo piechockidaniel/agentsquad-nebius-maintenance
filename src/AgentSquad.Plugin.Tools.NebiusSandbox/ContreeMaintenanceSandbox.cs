@@ -26,6 +26,7 @@ public sealed class ContreeMaintenanceSandbox(IConfiguration configuration) : IM
     private McpClient? _client;
     private HashSet<string> _tools = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, string> _resolvedTools = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private string Command => configuration["NebiusSandbox:Command"] ?? (OperatingSystem.IsWindows()
         ? "contree-mcp.exe" : "contree-mcp");
     private string Image => configuration["NebiusSandbox:ImageRegistryUrl"]
@@ -160,21 +161,100 @@ public sealed class ContreeMaintenanceSandbox(IConfiguration configuration) : IM
 
     private async Task Connect(CancellationToken ct)
     {
-        if (_client is not null)
-            return;
+        await _connectionGate.WaitAsync(ct);
+        try
+        {
+            if (_client is not null && _resolvedTools.Count > 0)
+                return;
 
-        _client = await McpClient.CreateAsync(new StdioClientTransport(
-            new()
+            if (_client is not null)
             {
-                Name = "nebius-sandbox",
-                Command = Command
-            }), cancellationToken: ct);
+                var incompleteClient = _client;
+                _client = null;
+                _tools = new(StringComparer.OrdinalIgnoreCase);
+                _resolvedTools = new(StringComparer.OrdinalIgnoreCase);
+                await incompleteClient.DisposeAsync();
+            }
 
-        _tools = (await _client.ListToolsAsync(cancellationToken: ct)).Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _resolvedTools = RequiredTools
-            .Select(pair => new { Operation = pair.Key, Tool = pair.Value.FirstOrDefault(_tools.Contains) })
-            .Where(pair => pair.Tool is not null)
-            .ToDictionary(pair => pair.Operation, pair => pair.Tool!, StringComparer.OrdinalIgnoreCase);
+            McpClient? candidate = null;
+            try
+            {
+                candidate = await McpClient.CreateAsync(new StdioClientTransport(
+                    new()
+                    {
+                        Name = "nebius-sandbox",
+                        Command = Command
+                    }), cancellationToken: ct);
+
+                var tools = (await candidate.ListToolsAsync(cancellationToken: ct))
+                    .Select(x => x.Name)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var resolvedTools = RequiredTools
+                    .Select(pair => new { Operation = pair.Key, Tool = pair.Value.FirstOrDefault(tools.Contains) })
+                    .Where(pair => pair.Tool is not null)
+                    .ToDictionary(pair => pair.Operation, pair => pair.Tool!, StringComparer.OrdinalIgnoreCase);
+
+                _tools = tools;
+                _resolvedTools = resolvedTools;
+                _client = candidate;
+                candidate = null;
+            }
+            finally
+            {
+                if (candidate is not null)
+                {
+                    try
+                    {
+                        await candidate.DisposeAsync();
+                    }
+                    catch
+                    {
+                        // Preserve the original connection failure for preflight evidence.
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
+    }
+
+    public async Task<MaintenanceSandboxManualCheckResult> RunManualCheckAsync(
+        MaintenanceSandboxManualCheckRequest request, CancellationToken cancellationToken = default)
+    {
+        if (!ManualSandboxCheckCatalog.TryGet(request.CheckId, out var definition) ||
+            !string.Equals(definition.Command, request.Command, StringComparison.Ordinal))
+        {
+            return new(false, "The requested manual Sandbox check is outside the fixed policy.", null,
+                "Only registered loopback checks can run against a remediated snapshot.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.SnapshotId))
+        {
+            return new(false, "The remediated Sandbox snapshot is missing.", null,
+                "Manual checks require an immutable snapshot from a successful repair.");
+        }
+
+        if (!(await PreflightAsync(cancellationToken)).Available)
+        {
+            return new(false, "Nebius Sandbox preflight failed.", null,
+                "The manual check was not started.");
+        }
+
+        try
+        {
+            var output = await Run(request.Command, request.SnapshotId, null, null, true, cancellationToken);
+            return Ok(output)
+                ? new(true, $"{definition.Title} passed inside a disposable Nebius Sandbox.", Clip(output))
+                : new(false, $"{definition.Title} did not produce the expected response.", Clip(output),
+                    "The disposable Sandbox command returned a non-zero status.");
+        }
+        catch (Exception ex)
+        {
+            return new(false, $"{definition.Title} could not run in the Sandbox.", null,
+                EvidenceSanitizer.Clean(ex.Message));
+        }
     }
 
     private async Task<string> Call(string name, IReadOnlyDictionary<string, object?> args, CancellationToken ct)
@@ -372,7 +452,8 @@ public sealed class ContreeMaintenanceSandbox(IConfiguration configuration) : IM
 
     private static bool IsApprovedCommand(string command) =>
         string.Equals(command, VulnerabilityScanCommand, StringComparison.Ordinal) ||
-        string.Equals(command, TestCommand, StringComparison.Ordinal);
+        string.Equals(command, TestCommand, StringComparison.Ordinal) ||
+        ManualSandboxCheckCatalog.All.Any(check => string.Equals(check.Command, command, StringComparison.Ordinal));
 
     private static bool Ok(string output) =>
         output.Contains("\"exit_code\": 0", StringComparison.OrdinalIgnoreCase) && !output.Contains("\"timed_out\": true", StringComparison.OrdinalIgnoreCase);

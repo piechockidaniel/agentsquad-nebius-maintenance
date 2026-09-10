@@ -1,0 +1,6 @@
+services:
+  agentsquad.host:
+    image: ${DOCKER_REGISTRY-}agentsquadhost
+    build:
+      context: .
+      dockerfile: src/AgentSquad.Host/Dockerfile

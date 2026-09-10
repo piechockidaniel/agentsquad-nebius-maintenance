@@ -28,6 +28,8 @@ public interface IMaintenanceSandbox
     Task<MaintenanceSandboxPreflight> PreflightAsync(CancellationToken cancellationToken = default);
     Task<MaintenanceSandboxResult> RunApprovedPatchAsync(MaintenanceSandboxRequest request,
         CancellationToken cancellationToken = default);
+    Task<MaintenanceSandboxManualCheckResult> RunManualCheckAsync(MaintenanceSandboxManualCheckRequest request,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record MaintenanceSandboxPreflight(bool Available, string Detail, IReadOnlyList<string> AvailableTools);
@@ -36,6 +38,10 @@ public sealed record MaintenanceSandboxRequest(string FixtureRoot, string Projec
 public sealed record MaintenanceSandboxStep(string Name, bool Succeeded, string Detail, string? Output = null);
 public sealed record MaintenanceSandboxResult(bool Succeeded, string? SnapshotId,
     IReadOnlyList<MaintenanceSandboxStep> Steps, string? Error = null);
+
+public sealed record MaintenanceSandboxManualCheckRequest(string SnapshotId, string CheckId, string Command);
+public sealed record MaintenanceSandboxManualCheckResult(bool Succeeded, string Detail,
+    string? Output = null, string? Error = null);
 
 public sealed record MaintenanceScenario(string Id, string Title, string RelativeFixtureRoot);
 

@@ -12,4 +12,5 @@ appsettings.*.local.json
 .env
 .env.local
 node_modules
+.playwright-cli/
 graphify-out/

@@ -38,6 +38,7 @@ public sealed record MaintenanceRunSnapshot(
     string? Summary,
     string? SandboxSnapshotId,
     IReadOnlyList<MaintenanceToolStep> ToolSteps,
+    IReadOnlyList<MaintenanceManualCheckSnapshot> ManualChecks,
     string? Error);
 
 public sealed record MaintenanceStartResult(
