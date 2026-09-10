@@ -1,0 +1,15 @@
+name: agentsquad
+
+services:
+  host:
+    image: agentsquad:3f3035a
+    build:
+      context: ../..
+      dockerfile: src/AgentSquad.Host/Dockerfile
+    env_file:
+      - /etc/agentsquad/agentsquad.env
+    ports:
+      - "127.0.0.1:8090:8080"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true

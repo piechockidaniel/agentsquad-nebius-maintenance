@@ -69,6 +69,10 @@ AgentSquad is ready to run as a Docker image on a CPU **Nebius Container VM**. T
 
 See the operator-ready [Nebius deployment guide](deploy/nebius/README.md) for the Container VM steps, exact Docker arguments, credential boundaries, smoke test, and the short list of values to collect. Start with [runtime.env.example](deploy/nebius/runtime.env.example); it contains placeholders only and must never be populated or committed.
 
+## Deploy on a VPS
+
+The same container runs on a regular Linux VPS with Docker Compose, with Nebius Token Factory and Sandboxes retained as the external AI runtime. The deployment binds the app to loopback only and lets the existing HTTPS proxy own the public endpoint. See the [VPS deployment guide](docs/VPS_DEPLOYMENT.md) for the compose definition, OpenLiteSpeed templates, protected runtime configuration, verification, and optional local-only Portainer GUI.
+
 ## Verify without cloud credentials
 
 ```powershell
