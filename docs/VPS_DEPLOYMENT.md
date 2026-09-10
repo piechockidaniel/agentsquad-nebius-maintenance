@@ -29,4 +29,4 @@ Portainer CE may run bound to `127.0.0.1:9443` with its data in a named Docker v
 ssh -L 9443:127.0.0.1:9443 root@connect-the-dots.biz
 ```
 
-Open `https://localhost:9443`, complete Portainer's initial administrator setup, choose the detected local environment, then manage the `agentsquad` compose project from its Containers and Stacks views. Do not publish Portainer or the Docker socket on a public port.
+Open `https://localhost:9443`, complete Portainer's initial administrator setup, and choose the detected local environment. The running `agentsquad-host-1` container is available from **Containers** for logs, status checks, and start/stop/restart actions. Portainer does not automatically import Compose projects initially started from the command line into its Stacks view; keep using the versioned compose file for releases unless you deliberately migrate management to a Portainer stack. Do not publish Portainer or the Docker socket on a public port.
