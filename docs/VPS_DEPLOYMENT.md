@@ -6,9 +6,9 @@ The production deployment uses Docker Compose with the application bound only to
 
 ## Runtime configuration
 
-Create `/etc/agentsquad/agentsquad.env` on the VPS with mode `0600`. It must contain a unique 32+ character `AgentSquad__Web__AccessToken`. Add `NEBIUS_TOKEN_FACTORY_API_KEY`, `CONTREE_TOKEN`, and `CONTREE_PROJECT` before enabling maintenance. `TAVILY_API_KEY` is optional.
+Create `/etc/agentsquad/agentsquad.env` on the VPS with mode `0600`. It must contain a unique operator username, a unique 20+ character `AgentSquad__Web__OperatorPassword`, and a separate 32+ character `AgentSquad__Web__AccessToken`. The operator credentials protect the public console with Basic authentication; the token independently protects every maintenance API request. Add `NEBIUS_TOKEN_FACTORY_API_KEY`, `CONTREE_TOKEN`, and `CONTREE_PROJECT` before enabling maintenance. `TAVILY_API_KEY` is optional.
 
-Keep `AgentSquad__Maintenance__Enabled=false` until the separate ConTree credentials have been tested. The unauthenticated `GET /health` endpoint stays available for the reverse proxy health check; all `/maintenance/*` endpoints require the access token in production.
+Keep `AgentSquad__Maintenance__Enabled=false` until the separate ConTree credentials have been tested. The unauthenticated `GET /health` endpoint stays available for the reverse proxy health check; all other production routes require the operator credentials, and all `/maintenance/*` endpoints also require the access token.
 
 ## Release and verification
 

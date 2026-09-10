@@ -12,6 +12,36 @@ builder.Services.AddSingleton<IMaintenanceSandbox, ContreeMaintenanceSandbox>();
 
 var app = builder.Build();
 
+if (app.Environment.IsProduction())
+{
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            await next(context);
+            return;
+        }
+
+        var web = context.RequestServices.GetRequiredService<IOptions<AgentSquadOptions>>().Value.Web;
+        if (!ProductionWebAccess.IsOperatorConfigured(web))
+        {
+            await Results.Problem(
+                "Console is unavailable until AgentSquad__Web__OperatorUsername and AgentSquad__Web__OperatorPassword are configured.",
+                statusCode: StatusCodes.Status503ServiceUnavailable).ExecuteAsync(context);
+            return;
+        }
+
+        if (ProductionWebAccess.IsOperatorAuthorized(context.Request.Headers.Authorization, web))
+        {
+            await next(context);
+            return;
+        }
+
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        context.Response.Headers["WWW-Authenticate"] = ProductionWebAccess.AuthenticationChallenge;
+    });
+}
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

@@ -61,7 +61,7 @@ After a run reaches **Remediated**, Step 3 offers two optional manual checks: **
 
 The console accepts no custom command, URL, port, request body, or code change. One Sandbox operation may run at a time, each repair keeps at most ten recorded manual checks, and a failed manual check remains separate from the original remediation result. Nothing is exposed publicly and the host workspace, Git, pull requests, and deployments remain untouched.
 
-In the Development launch profile, the maintenance API is open for local iteration. A deployed production container requires a separate 32+ character `AgentSquad__Web__AccessToken`; enter it in the console before using the maintenance APIs. This token is neither a Nebius credential nor an approval mechanism—it prevents an unknown visitor to a public demo URL from starting a Sandbox run.
+In the Development launch profile, the console and maintenance API are open for local iteration. In Production, the whole console (except `/health`) first requires `AgentSquad__Web__OperatorUsername` and a unique 20+ character `AgentSquad__Web__OperatorPassword` through the browser's standard Basic-auth prompt. Every `/maintenance/*` endpoint then independently requires a separate 32+ character `AgentSquad__Web__AccessToken` entered into the console. Neither value is a Nebius credential or an approval mechanism; this two-control boundary prevents an unknown visitor to the public URL from viewing the console or starting a Sandbox run.
 
 ## Deploy on Nebius
 

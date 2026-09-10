@@ -8,7 +8,7 @@ Record a fresh run in the deployed web console. The recorded application must be
 2. Confirm `GET /health` returns `200`; opening the console starts its automatic preflight and should report the NVIDIA model and Contree Sandbox tools as ready.
 3. Ensure the reusable `agentsquad/maintenance/dotnet-sdk:8.0` image exists. That avoids recording a first-time public-registry import delay.
 4. Start with an empty or uncluttered run history. The three controlled scenarios are all that need to be shown.
-5. Use a dedicated, revocable web-console access token for the recording and judge instructions. Do not show its value.
+5. Use dedicated, revocable operator credentials and a separate web-console access token for the recording and judge instructions. Do not show any of their values.
 
 ## Spoken script and screen actions
 

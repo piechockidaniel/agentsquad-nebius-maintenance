@@ -34,8 +34,15 @@ public sealed class MaintenanceOptions
 public sealed class WebOptions
 {
     /// <summary>
+    /// Required outside Development to view the public console. The values are
+    /// supplied only through the deployment environment and never reach the browser bundle.
+    /// </summary>
+    [MinLength(3)] public string? OperatorUsername { get; set; }
+    [MinLength(20)] public string? OperatorPassword { get; set; }
+
+    /// <summary>
     /// Required outside Development before maintenance evidence or a repair run can be requested.
-    /// It protects the public Container VM URL without placing a credential in the static console.
+    /// This is a second, distinct control after operator authentication; it is never a provider credential.
     /// </summary>
     [MinLength(32)] public string? AccessToken { get; set; }
 }
