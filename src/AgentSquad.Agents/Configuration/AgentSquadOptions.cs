@@ -45,4 +45,10 @@ public sealed class WebOptions
     /// This is a second, distinct control after operator authentication; it is never a provider credential.
     /// </summary>
     [MinLength(32)] public string? AccessToken { get; set; }
+
+    /// <summary>
+    /// Optional server-only file used to retain hashes of active operator sessions across a host restart.
+    /// This is deliberately not a browser storage setting and must be on a protected volume.
+    /// </summary>
+    public string? SessionStorePath { get; set; }
 }

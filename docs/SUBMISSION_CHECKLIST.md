@@ -15,7 +15,7 @@ AgentSquad has live evidence for its core claim: the `cache-repair` scenario det
 ## Complete before pressing Submit
 
 - [ ] The GitHub repository is public, points to the final code, and displays the MIT license in its About section.
-- [ ] The deployed Container VM URL is reachable and `/health` returns `200`.
+- [ ] The deployed VPS URL is reachable and `/health` returns `200`.
 - [ ] The deployed image is an immutable tag or digest that matches the public repository revision.
 - [ ] A dedicated, revocable web-console token is available for judges in the Devpost testing instructions. Do not publish Nebius, Contree, or Token Factory credentials.
 - [ ] Record and publicly upload the English, narrated YouTube video. Keep it under three minutes and show the working app, not only slides or source code.

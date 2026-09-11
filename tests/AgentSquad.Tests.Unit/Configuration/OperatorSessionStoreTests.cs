@@ -26,4 +26,29 @@ public sealed class OperatorSessionStoreTests
 
         store.IsActive(session, DateTimeOffset.UtcNow).Should().BeFalse();
     }
+
+    [Fact]
+    public void Restores_an_unexpired_session_from_the_server_side_store()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsquad-session-{Guid.NewGuid():N}.json");
+        var now = DateTimeOffset.UtcNow;
+
+        try
+        {
+            var firstHost = new OperatorSessionStore(path);
+            var session = firstHost.Create(now);
+
+            var restartedHost = new OperatorSessionStore(path);
+
+            restartedHost.IsActive(session, now.AddMinutes(1)).Should().BeTrue();
+            File.ReadAllText(path).Should().NotContain(session);
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
 }

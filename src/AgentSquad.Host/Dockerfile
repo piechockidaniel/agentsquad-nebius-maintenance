@@ -11,6 +11,7 @@ RUN apt-get update \
     && /opt/contree/bin/contree-mcp --help > /dev/null \
     && groupadd --gid 10001 agentsquad \
     && useradd --uid 10001 --gid agentsquad --create-home --shell /usr/sbin/nologin agentsquad \
+    && install -d --owner=agentsquad --group=agentsquad --mode=0700 /var/lib/agentsquad/sessions \
     && rm -rf /var/lib/apt/lists/*
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_URLS=http://+:8080 \

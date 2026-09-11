@@ -6,18 +6,28 @@ The production deployment uses Docker Compose with the application bound only to
 
 ## Runtime configuration
 
-Create `/etc/agentsquad/agentsquad.env` on the VPS with mode `0600`. It must contain a unique operator username, a unique 20+ character `AgentSquad__Web__OperatorPassword`, and a separate 32+ character `AgentSquad__Web__AccessToken`. The operator credentials protect the public console with a one-time sign-in and secure session cookie; the token independently protects every maintenance API request. Add `NEBIUS_TOKEN_FACTORY_API_KEY`, `CONTREE_TOKEN`, and `CONTREE_PROJECT` before enabling maintenance. `TAVILY_API_KEY` is optional.
+Create `/etc/agentsquad/agentsquad.env` on the VPS with mode `0600`. It must contain a unique operator username, a unique 20+ character `AgentSquad__Web__OperatorPassword`, and a separate 32+ character `AgentSquad__Web__AccessToken`. The operator credentials protect the public console with a one-time sign-in and secure session cookie; the token independently protects every maintenance API request.
 
-Keep `AgentSquad__Maintenance__Enabled=false` until the separate ConTree credentials have been tested. The unauthenticated `GET /health` endpoint stays available for the reverse proxy health check; all other production routes require the operator credentials, and all `/maintenance/*` endpoints also require the access token.
+For the verified Token Factory Sandbox setup, set `NEBIUS_TOKEN_FACTORY_API_KEY` to the AgentSquad Token Factory API key, set `CONTREE_TOKEN` to that same key, and set `CONTREE_PROJECT` to the Token Factory project ID beginning `aiproject-`. Do **not** use the Nebius Console URL's `project-` identifier for `CONTREE_PROJECT`; it cannot list this Token Factory Sandbox inventory. `TAVILY_API_KEY` is optional. Values do not need quotes when they contain no spaces; never add them to source, browser storage, logs, or screenshots.
+
+Keep `AgentSquad__Maintenance__Enabled=false` until the separate ConTree credentials have been tested. The unauthenticated `GET /health` endpoint stays available for the reverse proxy health check; all other production routes require the operator credentials, and all `/maintenance/*` endpoints also require the access token. Do not put either operator credential in browser storage. The Compose definition keeps only SHA-256 hashes of eight-hour opaque sign-in sessions in `/srv/agentsquad/data/sessions`, allowing a normal container recreation without a new sign-in.
 
 ## Release and verification
 
-Build from the public source at an immutable Git commit, then run:
+Build from the public source at an immutable Git commit. Before the first release, create the server-only session directory with the same non-root UID/GID used by the container. Build a tag derived from the exact commit, record its Docker image ID, add `AGENTSQUAD_IMAGE=agentsquad:<commit-sha>` to the protected environment file, then run:
 
 ```bash
-docker compose -f deploy/vps/docker-compose.yml up -d --build
+cd /srv/agentsquad/current
+release_sha="$(git rev-parse --short=12 HEAD)"
+sudo install -d -m 0700 -o 10001 -g 10001 /srv/agentsquad/data/sessions
+docker build -t "agentsquad:${release_sha}" -f src/AgentSquad.Host/Dockerfile .
+# Set AGENTSQUAD_IMAGE=agentsquad:${release_sha} in /etc/agentsquad/agentsquad.env.
+docker compose --env-file /etc/agentsquad/agentsquad.env -f deploy/vps/docker-compose.yml up -d --no-build --force-recreate
+docker image inspect "agentsquad:${release_sha}" --format '{{.Id}}'
 curl --fail http://127.0.0.1:8090/health
 ```
+
+The session file contains no password, provider key, API access token, or raw browser cookie. Deleting it deliberately signs every operator out; changing the operator password should be followed by deleting this file and recreating the container. The successful release gate is public `/health`, authenticated preflight, and the free Contree `list_images` check returning the reusable `agentsquad/maintenance/dotnet-sdk:8.0` image before a recording run.
 
 The OpenLiteSpeed templates in `deploy/vps/openlitespeed/` first serve the ACME HTTP challenge and then enable the certificate-specific TLS block. Retain an OpenLiteSpeed configuration backup before registering the vhost and listener mappings. Confirm the deployed certificate with SNI, the public `/health` endpoint, the static console, and the authenticated preflight.
 

@@ -2,12 +2,19 @@ name: agentsquad
 
 services:
   host:
-    image: agentsquad:3f3035a
+    # Supplied from /etc/agentsquad/agentsquad.env via --env-file at release time.
+    # The fallback keeps an already-running development checkout usable, but a release
+    # must set AGENTSQUAD_IMAGE to agentsquad:<immutable-git-sha>.
+    image: ${AGENTSQUAD_IMAGE:-agentsquad:3f3035a}
     build:
       context: ../..
       dockerfile: src/AgentSquad.Host/Dockerfile
     env_file:
       - /etc/agentsquad/agentsquad.env
+    environment:
+      AgentSquad__Web__SessionStorePath: /var/lib/agentsquad/sessions/operator-sessions.json
+    volumes:
+      - /srv/agentsquad/data/sessions:/var/lib/agentsquad/sessions
     ports:
       - "127.0.0.1:8090:8080"
     logging:
