@@ -10,6 +10,11 @@ services:
       - /etc/agentsquad/agentsquad.env
     ports:
       - "127.0.0.1:8090:8080"
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "7"
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

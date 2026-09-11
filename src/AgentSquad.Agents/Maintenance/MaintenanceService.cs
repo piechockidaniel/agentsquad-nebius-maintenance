@@ -27,12 +27,15 @@ public sealed class MaintenanceService(
         var requestedScenarioId = scenarioId ?? _options.DefaultScenarioId;
         if (!MaintenanceScenarioCatalog.TryGet(requestedScenarioId, out var scenario))
         {
+            logger.LogWarning("Maintenance run rejected: unknown scenario {ScenarioId}.", requestedScenarioId);
             return new MaintenanceStartResult(false, _options.Enabled, null,
                 $"Unknown maintenance scenario '{requestedScenarioId}'.", 400);
         }
 
         if (!_options.Enabled)
         {
+            logger.LogWarning("Maintenance run rejected because maintenance is disabled. Scenario={ScenarioId}",
+                scenario.Id);
             return new MaintenanceStartResult(false, false, null,
                 "Maintenance v1 is disabled. Set AgentSquad:Maintenance:Enabled=true after " +
                 "configuring Nebius credentials.");
@@ -44,6 +47,8 @@ public sealed class MaintenanceService(
             return new MaintenanceStartResult(false, true, null, "A maintenance Sandbox operation is already active.");
         }
 
+        logger.LogInformation("Maintenance run accepted. RunId={RunId} Scenario={ScenarioId} Trigger={Trigger}",
+            run.Id, scenario.Id, trigger);
         _ = Task.Run(() => ExecuteAsync(run.Id));
         return new MaintenanceStartResult(true, true, run);
     }
@@ -79,6 +84,7 @@ public sealed class MaintenanceService(
     {
         if (!_options.Enabled)
         {
+            logger.LogWarning("Maintenance preflight skipped because maintenance is disabled.");
             return new MaintenancePreflight(false, _options.ModelId,
                 "Maintenance v1 is disabled.", "Nebius Sandbox was not checked.", [], false,
                 "Tavily research was not checked.");
@@ -87,6 +93,8 @@ public sealed class MaintenanceService(
         var model = await modelProbe.ProbeAsync(cancellationToken);
         var sandboxState = await sandbox.PreflightAsync(cancellationToken);
         var tavily = await tavilyResearch.GetPreflightAsync(cancellationToken);
+        logger.LogInformation("Maintenance preflight completed. Ready={Ready} ModelAvailable={ModelAvailable} SandboxAvailable={SandboxAvailable} TavilyConfigured={TavilyConfigured}",
+            model.Available && sandboxState.Available, model.Available, sandboxState.Available, tavily.Configured);
         return new MaintenancePreflight(
             model.Available && sandboxState.Available,
             _options.ModelId,
@@ -193,7 +201,8 @@ public sealed class MaintenanceService(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             var error = EvidenceSanitizer.Clean(ex.Message) ?? "Unexpected maintenance failure.";
-            logger.LogError("Maintenance run {RunId} failed: {Error}", runId, error);
+            logger.LogError("Maintenance run failed unexpectedly. RunId={RunId} FailureCategory={FailureCategory}",
+                runId, EvidenceSanitizer.TelemetryCategory(error));
             Fail(runId, error);
         }
     }
@@ -255,7 +264,8 @@ public sealed class MaintenanceService(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             var error = EvidenceSanitizer.Clean(ex.Message);
-            logger.LogWarning("Tavily security research failed for maintenance run {RunId}: {Error}", runId, error);
+            logger.LogWarning("Tavily security research was unavailable. RunId={RunId} FailureCategory={FailureCategory}",
+                runId, EvidenceSanitizer.TelemetryCategory(error));
             store.Update(runId, run => run.AddStep("tavily_security_research", "unavailable",
                 "Supplementary Tavily security research was unavailable; repair policy remains unchanged.", error));
         }
@@ -279,7 +289,8 @@ public sealed class MaintenanceService(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             var error = EvidenceSanitizer.Clean(ex.Message);
-            logger.LogWarning("NVIDIA maintenance narration failed for run {RunId}: {Error}", runId, error);
+            logger.LogWarning("NVIDIA maintenance narration was unavailable. RunId={RunId} FailureCategory={FailureCategory}",
+                runId, EvidenceSanitizer.TelemetryCategory(error));
             store.Update(runId, run => run.AddStep("nvidia_risk_summary", "unavailable",
                 "The remediation remains policy-verified; NVIDIA narration was unavailable.",
                 error));
@@ -303,9 +314,21 @@ public sealed class MaintenanceService(
         return root;
     }
 
-    private void Block(string runId, string error) => store.Update(runId, run =>
-        run.Finish(MaintenanceRunStatuses.Blocked, "No autonomous change made", error));
+    private void Block(string runId, string error)
+    {
+        var safeError = EvidenceSanitizer.Clean(error) ?? "No failure detail was supplied.";
+        logger.LogWarning("Maintenance run blocked. RunId={RunId} FailureCategory={FailureCategory}",
+            runId, EvidenceSanitizer.TelemetryCategory(safeError));
+        store.Update(runId, run => run.Finish(
+            MaintenanceRunStatuses.Blocked, "No autonomous change made", safeError));
+    }
 
-    private void Fail(string runId, string error) => store.Update(runId, run =>
-        run.Finish(MaintenanceRunStatuses.Failed, "Sandbox verification failed", error));
+    private void Fail(string runId, string error)
+    {
+        var safeError = EvidenceSanitizer.Clean(error) ?? "No failure detail was supplied.";
+        logger.LogWarning("Maintenance run failed safely. RunId={RunId} FailureCategory={FailureCategory}",
+            runId, EvidenceSanitizer.TelemetryCategory(safeError));
+        store.Update(runId, run => run.Finish(
+            MaintenanceRunStatuses.Failed, "Sandbox verification failed", safeError));
+    }
 }

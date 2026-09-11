@@ -1,5 +1,6 @@
 using AgentSquad.Agents.Maintenance;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using System.Text.Json;
@@ -7,7 +8,7 @@ using System.Text.Json;
 namespace AgentSquad.NebiusSandbox;
 
 /// <summary>Contree MCP adapter exposing the fixed v1 maintenance sequence only.</summary>
-public sealed class ContreeMaintenanceSandbox(IConfiguration configuration) : IMaintenanceSandbox, IAsyncDisposable
+public sealed class ContreeMaintenanceSandbox(IConfiguration configuration, ILogger<ContreeMaintenanceSandbox> logger) : IMaintenanceSandbox, IAsyncDisposable
 {
     private const string DefaultImage = "docker://mcr.microsoft.com/dotnet/sdk:8.0";
     private const string ReusableImageTag = "agentsquad/maintenance/dotnet-sdk:8.0";
@@ -280,8 +281,14 @@ public sealed class ContreeMaintenanceSandbox(IConfiguration configuration) : IM
         var result = await _client!.CallToolAsync(toolName, args, cancellationToken: ct);
         var output = string.Join('\n', result.Content.OfType<TextContentBlock>().Select(x => x.Text));
         if (result.IsError == true)
-            throw new InvalidOperationException($"Sandbox operation '{name}' failed: {output}");
+        {
+            var safeOutput = EvidenceSanitizer.Clean(output) ?? "No provider error detail was supplied.";
+            logger.LogWarning("Sandbox tool failed. Operation={Operation} FailureCategory={FailureCategory}",
+                name, EvidenceSanitizer.TelemetryCategory(safeOutput));
+            throw new InvalidOperationException($"Sandbox operation '{name}' failed: {safeOutput}");
+        }
 
+        logger.LogInformation("Sandbox tool completed. Operation={Operation} OutputLength={OutputLength}", name, output.Length);
         return output;
     }
 

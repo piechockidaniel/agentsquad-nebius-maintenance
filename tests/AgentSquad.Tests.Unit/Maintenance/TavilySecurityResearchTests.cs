@@ -73,6 +73,17 @@ public sealed class TavilySecurityResearchTests
             .Be("Tavily token [redacted]");
     }
 
+    [Theory]
+    [InlineData("This token is not authorized for the selected project.", "authorization")]
+    [InlineData("The provider request timed out.", "timeout")]
+    [InlineData("Anonymous registry access was rate limited.", "rate-limited")]
+    [InlineData("Sandbox credentials are not configured.", "configuration")]
+    [InlineData("Unexpected upstream response.", "operation-failed")]
+    public void Maps_provider_errors_to_non_secret_telemetry_categories(string detail, string expected)
+    {
+        EvidenceSanitizer.TelemetryCategory(detail).Should().Be(expected);
+    }
+
     private static HttpResponseMessage Json(HttpStatusCode statusCode, string json) => new(statusCode)
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json")

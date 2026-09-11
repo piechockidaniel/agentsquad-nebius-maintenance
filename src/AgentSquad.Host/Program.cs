@@ -8,6 +8,11 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Emit machine-readable, privacy-safe telemetry to the container log. Docker retains the
+// bounded log stream on the VPS; no third-party telemetry service is required.
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole(options => options.TimestampFormat = "O");
+
 builder.Services.AddMaintenanceSquad(builder.Configuration);
 builder.Services.AddSingleton<IMaintenanceSandbox, ContreeMaintenanceSandbox>();
 builder.Services.AddSingleton<OperatorSessionStore>();

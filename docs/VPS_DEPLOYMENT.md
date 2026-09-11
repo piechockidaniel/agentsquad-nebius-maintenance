@@ -30,3 +30,7 @@ ssh -L 9443:127.0.0.1:9443 root@connect-the-dots.biz
 ```
 
 Open `https://localhost:9443`, complete Portainer's initial administrator setup, and choose the detected local environment. The running `agentsquad-host-1` container is available from **Containers** for logs, status checks, and start/stop/restart actions. Portainer does not automatically import Compose projects initially started from the command line into its Stacks view; keep using the versioned compose file for releases unless you deliberately migrate management to a Portainer stack. Do not publish Portainer or the Docker socket on a public port.
+
+## Telemetry and log retention
+
+AgentSquad emits structured JSON telemetry to standard output. Events record maintenance run IDs, selected scenarios, safe terminal outcomes, preflight availability, and Sandbox tool names; they deliberately omit API keys, access tokens, request bodies, and successful provider output. The Compose service uses Docker's local log driver with a seven-file, 10 MB-per-file rotation limit (at most 70 MB). Inspect retained events in **Portainer → Containers → agentsquad-host-1 → Logs**, or over SSH with `docker logs agentsquad-host-1`. The Docker-managed log store persists while the container is recreated, subject to Docker's normal cleanup and the configured rotation limit.
