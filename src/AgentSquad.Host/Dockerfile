@@ -48,14 +48,14 @@ COPY tests/AgentSquad.Tests.Unit/Maintenance/ tests/AgentSquad.Tests.Unit/Mainte
 COPY samples/maintenance-lab/ samples/maintenance-lab/
 
 FROM build AS test
-ARG BUILD_CONFIGURATION
+ARG BUILD_CONFIGURATION=Release
 RUN dotnet build tests/AgentSquad.Tests.Unit/AgentSquad.Tests.Unit.csproj -c $BUILD_CONFIGURATION --no-restore \
     && dotnet vstest tests/AgentSquad.Tests.Unit/bin/$BUILD_CONFIGURATION/net10.0/AgentSquad.Tests.Unit.dll \
         --TestAdapterPath:tests/AgentSquad.Tests.Unit/bin/$BUILD_CONFIGURATION/net10.0 \
         --logger:"console;verbosity=minimal"
 
 FROM test AS publish
-ARG BUILD_CONFIGURATION
+ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish src/AgentSquad.Host/AgentSquad.Host.csproj -c $BUILD_CONFIGURATION --no-restore -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
