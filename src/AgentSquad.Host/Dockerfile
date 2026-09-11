@@ -34,8 +34,10 @@ RUN dotnet restore src/AgentSquad.Host/AgentSquad.Host.csproj \
     && dotnet restore tests/AgentSquad.Tests.Unit/AgentSquad.Tests.Unit.csproj
 COPY src/AgentSquad.Agents/Configuration/AgentSquadOptions.cs src/AgentSquad.Agents/Configuration/
 COPY src/AgentSquad.Agents/Configuration/ProductionWebAccess.cs src/AgentSquad.Agents/Configuration/
+COPY src/AgentSquad.Agents/Configuration/OperatorSessionStore.cs src/AgentSquad.Agents/Configuration/
 COPY src/AgentSquad.Agents/Maintenance/ src/AgentSquad.Agents/Maintenance/
 COPY src/AgentSquad.Host/Program.cs src/AgentSquad.Host/
+COPY src/AgentSquad.Host/OperatorSignInPage.cs src/AgentSquad.Host/
 COPY src/AgentSquad.Host/appsettings.json src/AgentSquad.Host/
 COPY src/AgentSquad.Host/wwwroot/ src/AgentSquad.Host/wwwroot/
 COPY src/AgentSquad.Plugin.Tools.NebiusSandbox/ContreeMaintenanceSandbox.cs src/AgentSquad.Plugin.Tools.NebiusSandbox/

@@ -1,5 +1,6 @@
 using AgentSquad.Agents.Configuration;
 using AgentSquad.Agents.Maintenance;
+using AgentSquad.Host;
 using AgentSquad.NebiusSandbox;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddMaintenanceSquad(builder.Configuration);
 builder.Services.AddSingleton<IMaintenanceSandbox, ContreeMaintenanceSandbox>();
+builder.Services.AddSingleton<OperatorSessionStore>();
 
 var app = builder.Build();
 
@@ -16,7 +18,8 @@ if (app.Environment.IsProduction())
 {
     app.Use(async (context, next) =>
     {
-        if (context.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase))
+        if (context.Request.Path.Equals("/health", StringComparison.OrdinalIgnoreCase) ||
+            context.Request.Path.StartsWithSegments("/operator/sign-in"))
         {
             await next(context);
             return;
@@ -31,14 +34,21 @@ if (app.Environment.IsProduction())
             return;
         }
 
-        if (ProductionWebAccess.IsOperatorAuthorized(context.Request.Headers.Authorization, web))
+        var sessions = context.RequestServices.GetRequiredService<OperatorSessionStore>();
+        if (sessions.IsActive(context.Request.Cookies[OperatorSessionStore.CookieName], DateTimeOffset.UtcNow))
         {
             await next(context);
             return;
         }
 
+        if (context.Request.Path.StartsWithSegments("/maintenance"))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        context.Response.Headers["WWW-Authenticate"] = ProductionWebAccess.AuthenticationChallenge;
+        context.Response.Redirect("/operator/sign-in");
     });
 }
 
@@ -47,6 +57,51 @@ app.UseStaticFiles();
 
 app.MapGet("/health", () =>
     Results.Ok(new { status = "ok", time = DateTimeOffset.UtcNow }));
+
+app.MapGet("/operator/sign-in", () =>
+    Results.Content(OperatorSignInPage.Html, "text/html"));
+
+app.MapPost("/operator/sign-in", (OperatorSignInRequest request, IOptions<AgentSquadOptions> options,
+    OperatorSessionStore sessions, HttpResponse response) =>
+{
+    var web = options.Value.Web;
+    if (!ProductionWebAccess.IsOperatorConfigured(web))
+    {
+        return Results.Problem(
+            "Console is unavailable until AgentSquad__Web__OperatorUsername and AgentSquad__Web__OperatorPassword are configured.",
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    if (!ProductionWebAccess.AreOperatorCredentialsValid(request.Username, request.Password, web))
+    {
+        return Results.Unauthorized();
+    }
+
+    var now = DateTimeOffset.UtcNow;
+    response.Cookies.Append(OperatorSessionStore.CookieName, sessions.Create(now), new CookieOptions
+    {
+        HttpOnly = true,
+        IsEssential = true,
+        SameSite = SameSiteMode.Strict,
+        Secure = true,
+        Expires = now.Add(OperatorSessionStore.SessionLifetime)
+    });
+
+    return Results.NoContent();
+});
+
+app.MapPost("/operator/sign-out", (HttpRequest request, HttpResponse response, OperatorSessionStore sessions) =>
+{
+    sessions.Revoke(request.Cookies[OperatorSessionStore.CookieName]);
+    response.Cookies.Delete(OperatorSessionStore.CookieName, new CookieOptions
+    {
+        HttpOnly = true,
+        IsEssential = true,
+        SameSite = SameSiteMode.Strict,
+        Secure = true
+    });
+    return Results.NoContent();
+});
 
 var maintenance = app.MapGroup("/maintenance");
 
@@ -112,3 +167,5 @@ maintenance.MapPost("/runs/{id}/manual-checks/{checkId}", (string id, string che
 });
 
 app.Run();
+
+internal sealed record OperatorSignInRequest(string? Username, string? Password);

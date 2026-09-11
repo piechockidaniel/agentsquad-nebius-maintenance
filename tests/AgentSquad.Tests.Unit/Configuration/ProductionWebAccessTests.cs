@@ -1,6 +1,4 @@
 using AgentSquad.Agents.Configuration;
-using System.Text;
-
 namespace AgentSquad.Tests.Unit.Configuration;
 
 public sealed class ProductionWebAccessTests
@@ -12,26 +10,25 @@ public sealed class ProductionWebAccessTests
     };
 
     [Fact]
-    public void Accepts_the_exact_basic_operator_credentials()
+    public void Accepts_the_exact_operator_credentials()
     {
-        ProductionWebAccess.IsOperatorAuthorized(Basic("operator:correct-horse-battery-staple"), Options)
+        ProductionWebAccess.AreOperatorCredentialsValid("operator", "correct-horse-battery-staple", Options)
             .Should().BeTrue();
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    [InlineData("Bearer any-token")]
-    [InlineData("Basic not-base64")]
-    public void Rejects_missing_or_malformed_authorization(string? authorization)
+    [InlineData("somebody")]
+    public void Rejects_missing_or_incorrect_operator_username(string? username)
     {
-        ProductionWebAccess.IsOperatorAuthorized(authorization, Options).Should().BeFalse();
+        ProductionWebAccess.AreOperatorCredentialsValid(username, "correct-horse-battery-staple", Options).Should().BeFalse();
     }
 
     [Fact]
     public void Rejects_an_incorrect_operator_password()
     {
-        ProductionWebAccess.IsOperatorAuthorized(Basic("operator:wrong-password-which-is-long"), Options)
+        ProductionWebAccess.AreOperatorCredentialsValid("operator", "wrong-password-which-is-long", Options)
             .Should().BeFalse();
     }
 
@@ -41,9 +38,6 @@ public sealed class ProductionWebAccessTests
         var incomplete = new WebOptions { OperatorUsername = "operator" };
 
         ProductionWebAccess.IsOperatorConfigured(incomplete).Should().BeFalse();
-        ProductionWebAccess.IsOperatorAuthorized(Basic("operator:anything"), incomplete).Should().BeFalse();
+        ProductionWebAccess.AreOperatorCredentialsValid("operator", "anything", incomplete).Should().BeFalse();
     }
-
-    private static string Basic(string value) =>
-        $"Basic {Convert.ToBase64String(Encoding.UTF8.GetBytes(value))}";
 }

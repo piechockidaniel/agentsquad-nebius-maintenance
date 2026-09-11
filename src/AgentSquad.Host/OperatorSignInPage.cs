@@ -1,0 +1,11 @@
+namespace AgentSquad.Host;
+
+internal static class OperatorSignInPage
+{
+    public const string Html = """
+        <!doctype html>
+        <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AgentSquad operator sign in</title>
+        <style>body{min-width:320px;margin:0;display:grid;min-height:100vh;place-items:center;color:#15233e;background:linear-gradient(127deg,#d7e5f8,#edf3fb 47%,#c9ebf8);font:16px/1.5 Inter,ui-sans-serif,system-ui,sans-serif}.card{width:min(100% - 40px,420px);padding:34px;border:1px solid rgba(255,255,255,.9);border-radius:28px;background:rgba(250,252,255,.82);box-shadow:0 25px 60px rgba(51,81,130,.18)}h1{margin:0 0 8px;font-size:32px;letter-spacing:-.04em}p{color:#5b7092}label{display:grid;gap:6px;margin:16px 0;color:#334c70;font-weight:700}input{padding:12px;border:1px solid #c2d1e7;border-radius:12px;font:inherit}button{width:100%;margin-top:10px;padding:13px;border:0;border-radius:12px;color:white;background:#15233e;font:inherit;font-weight:750;cursor:pointer}button:disabled{opacity:.65;cursor:wait}#message{min-height:24px;margin:14px 0 0;color:#b1263f;font-size:14px}</style>
+        </head><body><main class="card"><p>AgentSquad · operator access</p><h1>Sign in</h1><p>This console can create bounded Nebius Sandbox work. Provider credentials stay on the server.</p><form id="signIn"><label>Username<input name="username" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button>Continue</button><p id="message" role="alert"></p></form></main><script>const form=document.querySelector('#signIn'),message=document.querySelector('#message'),button=form.querySelector('button');form.addEventListener('submit',async event=>{event.preventDefault();message.textContent='';button.disabled=true;try{const data=new FormData(form),response=await fetch('/operator/sign-in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:data.get('username'),password:data.get('password')})});if(!response.ok)throw new Error('Incorrect username or password.');location.replace('/')}catch(error){message.textContent=error.message;button.disabled=false}});</script></body></html>
+        """;
+}

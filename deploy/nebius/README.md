@@ -29,7 +29,7 @@ Required values:
 | `TAVILY_API_KEY` | Tavily account | Optional. Enables Dependency Sentinel's bounded supplementary search for GitHub, NuGet, and Microsoft security evidence after policy confirmation. Required only when pursuing the Tavily bonus award. |
 | `CONTREE_TOKEN` | The Token Factory Sandboxes / ConTree access flow | Authenticates the constrained MCP process to Sandboxes. |
 | `CONTREE_PROJECT` | Nebius project details | Scopes the sandbox work to the correct Nebius project. |
-| `AgentSquad__Web__OperatorUsername` and `AgentSquad__Web__OperatorPassword` | Generate a unique name and random 20+ character password | Protect the public console with Basic authentication. They are unrelated to Nebius credentials. |
+| `AgentSquad__Web__OperatorUsername` and `AgentSquad__Web__OperatorPassword` | Generate a unique name and random 20+ character password | Protect the public console through a one-time sign-in and secure session. They are unrelated to Nebius credentials. |
 | `AgentSquad__Web__AccessToken` | Generate a separate random 32+ character value | Protects `/maintenance/*` after the operator challenge. It is unrelated to Nebius credentials. |
 | `AgentSquad__Maintenance__Enabled=true` | Operator choice after all checks | Enables manual and weekday scheduled maintenance runs. |
 
@@ -66,7 +66,7 @@ Nebius supports custom public-registry images and provides a public web UI link 
 
 1. Open the Container VM's **Go to Web UI** link.
 2. Confirm `GET /health` responds with `200`.
-3. Enter the operator username and password in the browser's Basic-auth prompt, then paste `AgentSquad__Web__AccessToken` into the console's **Console access token** field. The browser holds the token only for the current session.
+3. Sign in with the operator username and password, then paste `AgentSquad__Web__AccessToken` into the console's **Console access token** field. The browser holds the token only for the current session.
 4. Select **Check Nebius preflight**. It must show both the NVIDIA model and ConTree sandbox tools as ready. When pursuing the Tavily bonus, also confirm that Tavily supplementary security research is configured.
 5. Run `cache-repair`. Capture the advisory, manifest-only diff, passing baseline and patched test output, clean scan, and Sandbox workspace snapshot ID. Optionally demonstrate `unapproved-package` (blocked before Sandbox mutation) and `baseline-test-failure` (fails before patch staging).
 
