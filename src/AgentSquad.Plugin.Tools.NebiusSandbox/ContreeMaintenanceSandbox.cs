@@ -38,9 +38,22 @@ public sealed class ContreeMaintenanceSandbox(IConfiguration configuration) : IM
         {
             await Connect(cancellationToken);
             var missing = RequiredTools.Keys.Where(x => !_resolvedTools.ContainsKey(x)).ToArray();
-            return missing.Length == 0 ? new(true, "Contree MCP connected to Nebius Token Factory Sandboxes.",
-                _tools.Order().ToArray()) : new(false, $"Missing Sandbox tools: {string.Join(", ", missing)}.",
-                _tools.ToArray());
+            if (missing.Length != 0)
+            {
+                return new(false, $"Missing Sandbox tools: {string.Join(", ", missing)}.", _tools.ToArray());
+            }
+
+            // A successful MCP handshake only proves that the tool definitions are available. Read the
+            // approved-image inventory as a no-mutation authorization check so a mismatched ConTree
+            // token/project is reported during preflight rather than after a user starts a repair.
+            await Call("list_images", new Dictionary<string, object?>
+            {
+                ["tag_prefix"] = ReusableImageTagPrefix,
+                ["limit"] = 20
+            }, cancellationToken);
+
+            return new(true, "Contree MCP connected and approved Sandbox image inventory is readable.",
+                _tools.Order().ToArray());
         }
         catch (Exception ex)
         {
