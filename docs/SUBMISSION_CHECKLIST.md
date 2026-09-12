@@ -10,7 +10,7 @@ AgentSquad has live evidence for its core claim: the `cache-repair` scenario det
 - Setup, local verification, credential boundaries, Nebius deployment instructions, and the deterministic policy in the [README](../README.md).
 - A controlled .NET 8 Maintenance Lab with a successful repair, an unapproved-scope block, and a failing-baseline stop condition.
 - Explicit disclosure of where Nebius Token Factory, the NVIDIA Nemotron model, Token Factory Sandboxes, Contree MCP, and Tavily Search are used.
-- A 2:30 recording plan in [SUBMISSION_VIDEO.md](SUBMISSION_VIDEO.md).
+- A 2:45 recording plan in [SUBMISSION_VIDEO.md](SUBMISSION_VIDEO.md).
 
 ## Complete before pressing Submit
 
@@ -29,6 +29,6 @@ AgentSquad has live evidence for its core claim: the `cache-repair` scenario det
 
 Use this as the basis for the Devpost testing field, replacing the bracketed values only at submission time:
 
-> Open [deployed AgentSquad URL] with the supplied short-lived review username and password. Confirm `/health` returns `200`. In the console, enter the separate dedicated review access token, select **Known dependency repair**, and click **Run sandbox repair**. The expected result is `Remediated`, with the exact manifest-only `Microsoft.Extensions.Caching.Memory 8.0.0 → 8.0.1` diff, passing tests, clean vulnerability rescan, and a Sandbox snapshot ID. The `Unapproved second dependency` scenario must end `Blocked`; `Baseline test failure` must end `Failed` before a patch is staged. The review credentials grant access only to AgentSquad's web console. They are not Nebius, Contree, or Token Factory credentials.
+> Open [deployed AgentSquad URL] with the supplied short-lived review username and password. Confirm `/health` returns `200`. In the console, enter the separate dedicated review access token, then select **Repair one known dependency vulnerability** and click **Run Path 01**. The expected result is `Remediated`, with the exact manifest-only `Microsoft.Extensions.Caching.Memory 8.0.0 → 8.0.1` diff, passing tests, clean vulnerability rescan, and a Sandbox snapshot ID. **Attempt an unapproved dependency change** must end `Blocked`; **Start with a failing test baseline** must end `Failed` before a patch is staged. The review credentials grant access only to AgentSquad's web console. They are not Nebius, Contree, or Token Factory credentials.
 
 Use unique, short-lived review credentials and rotate both the operator password and access token after the judging period. Keep the application publicly reachable through the end of judging, as required by the rules.
