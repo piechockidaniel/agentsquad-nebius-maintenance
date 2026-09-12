@@ -781,6 +781,7 @@ input {
     border: 1px solid #304966;
     border-radius: 12px;
     background: #0d1a2b;
+    color:var(--blue-soft);
 }
 
     .timeline-step::before {
@@ -832,6 +833,7 @@ input {
     display: grid;
     grid-template-columns: repeat(2,minmax(0,1fr));
     gap: 12px;
+    color: #efefef;
 }
 
 .evidence-card {
