@@ -101,6 +101,8 @@ All `/maintenance/*` endpoints require the `X-AgentSquad-Access-Token` header in
 
 ## Three-minute demo
 
+[DEMO VIDEO HERE](https://www.youtube.com/watch?v=BxTA5QYYqAw)
+
 Use the [timed recording script](docs/SUBMISSION_VIDEO.md). It shows one successful live repair with Tavily supplementary evidence and the two fail-closed paths, ending with `Remediated — Sandbox-only remediation verified`. No host repository or deployment changes.
 
 ## Project layout
