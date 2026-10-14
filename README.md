@@ -84,8 +84,6 @@ dotnet vstest .\samples\maintenance-lab\scenarios\cache-repair\tests\bin\Debug\n
 
 The `cache-repair` scenario intentionally produces NuGet warning `NU1903` before a repair; that is the vulnerability the Sandbox flow must remove from its staged copy. See the [Maintenance Lab](samples/maintenance-lab/README.md) for the three controlled scenarios.
 
-For a submission-ready recording and the remaining Devpost checks, see the [video script](docs/SUBMISSION_VIDEO.md) and [submission checklist](docs/SUBMISSION_CHECKLIST.md).
-
 ## API
 
 - `GET /health`
@@ -102,8 +100,6 @@ All `/maintenance/*` endpoints require the `X-AgentSquad-Access-Token` header in
 ## Three-minute demo
 
 [DEMO VIDEO HERE](https://www.youtube.com/watch?v=BxTA5QYYqAw)
-
-Use the [timed recording script](docs/SUBMISSION_VIDEO.md). It shows one successful live repair with Tavily supplementary evidence and the two fail-closed paths, ending with `Remediated — Sandbox-only remediation verified`. No host repository or deployment changes.
 
 ## Project layout
 
