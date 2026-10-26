@@ -1830,11 +1830,6 @@ main {
     bottom: 30px;
 }
 
-.activity, .toast {
-    border-color: var(--line);
-    background: rgba(255,255,255,.94);
-    box-shadow: var(--shadow);
-}
 /* Interaction refinements: stable step presentation, direct path actions,
        and high-contrast progress notifications. */
 .steps .step-indicator {
@@ -1961,12 +1956,66 @@ main {
     z-index: 100;
 }
 
+.operation-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(8,20,42,.46);
+    backdrop-filter: grayscale(.86) blur(4px);
+    -webkit-backdrop-filter: grayscale(.86) blur(4px);
+}
+
+body.operation-active main {
+    pointer-events: none;
+    user-select: none;
+}
+
+body.operation-active .operation-backdrop {
+    display: block;
+}
+
+body.operation-active .feedback {
+    inset: 0;
+    right: auto;
+    bottom: auto;
+    display: grid;
+    place-items: center;
+    width: auto;
+    padding: 16px;
+}
 .activity, .toast {
     border: 1px solid rgba(172,204,255,.76);
     color: #f8fbff;
     background: rgba(11,31,61,.97);
     box-shadow: 0 24px 64px rgba(6,20,48,.42);
     backdrop-filter: blur(14px);
+}
+
+body.operation-active .activity {
+    width: min(560px, calc(100vw - 32px));
+    min-height: 128px;
+    align-items: center;
+    gap: 18px;
+    padding: 28px 30px;
+    border-color: rgba(164,207,255,.96);
+    box-shadow: 0 28px 90px rgba(3,13,31,.62);
+}
+
+body.operation-active .activity strong {
+    font-size: 1.08rem;
+}
+
+body.operation-active .activity p {
+    margin-top: 6px;
+    font-size: .92rem;
+    line-height: 1.45;
+}
+
+body.operation-active .activity .spinner {
+    flex-basis: 30px;
+    width: 30px;
+    height: 30px;
 }
 
     .activity strong, .toast strong {
@@ -2214,4 +2263,14 @@ main {
         .button-row button {
             width: 100%;
         }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto !important;
+    }
+
+    .spinner {
+        animation: none;
+    }
 }

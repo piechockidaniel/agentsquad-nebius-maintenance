@@ -1,5 +1,6 @@
 ﻿const bySelector = selector => document.querySelector(selector);
-const access = bySelector('#access'),
+const main = bySelector('main'),
+    access = bySelector('#access'),
     refreshButton = bySelector('#refresh'),
     continueButton = bySelector('#continue'),
     runButton = bySelector('#run'),
@@ -33,7 +34,12 @@ let selectedScenario = 'cache-repair',
     manualCheckDefinitions = null,
     manualChecksLoading = null,
     manualChecksError = null,
-    lastRunNotification = null;
+    lastRunNotification = null,
+    operationActive = false,
+    focusedElementBeforeOperation = null,
+    fallbackInertElements = [],
+    mainAriaHiddenBeforeOperation = null,
+    mainInertBeforeOperation = false;
 access.value = sessionStorage.getItem('agentsquad-access-token') || '';
 access.addEventListener('input', () => sessionStorage.setItem('agentsquad-access-token', access.value));
 
@@ -103,6 +109,80 @@ function resultLabel(step, preferred) {
         'Completed';
 }
 
+function setMainInteractionDisabled(disabled) {
+    if ('inert' in main) {
+        if (disabled) mainInertBeforeOperation = main.inert;
+        main.inert = disabled ? true : mainInertBeforeOperation;
+        return;
+    }
+    if (disabled) {
+        if (fallbackInertElements.length) return;
+        mainAriaHiddenBeforeOperation = main.getAttribute('aria-hidden');
+        main.setAttribute('aria-hidden', 'true');
+        main.querySelectorAll('a,button,input,select,textarea,summary,[tabindex]').forEach(element => {
+            fallbackInertElements.push({
+                element,
+                disabled: 'disabled' in element ? element.disabled : null,
+                tabIndex: element.getAttribute('tabindex'),
+                ariaDisabled: element.getAttribute('aria-disabled')
+            });
+            element.setAttribute('tabindex', '-1');
+            if ('disabled' in element) element.disabled = true;
+            else element.setAttribute('aria-disabled', 'true');
+        });
+        document.activeElement?.blur?.();
+        return;
+    }
+    if (mainAriaHiddenBeforeOperation !== null) main.setAttribute('aria-hidden', mainAriaHiddenBeforeOperation);
+    else main.removeAttribute('aria-hidden');
+    fallbackInertElements.splice(0).forEach(({ element, disabled, tabIndex, ariaDisabled }) => {
+        if (disabled !== null) element.disabled = disabled;
+        if (tabIndex === null) element.removeAttribute('tabindex');
+        else element.setAttribute('tabindex', tabIndex);
+        if (ariaDisabled === null) element.removeAttribute('aria-disabled');
+        else element.setAttribute('aria-disabled', ariaDisabled);
+    });
+    mainAriaHiddenBeforeOperation = null;
+}
+
+function setOperationActive(active) {
+    const changed = operationActive !== active;
+    operationActive = active;
+    document.body.classList.toggle('operation-active', active);
+    main.setAttribute('aria-busy', String(active));
+    if (changed) setMainInteractionDisabled(active);
+}
+
+function beginOperation(title, detail) {
+    if (!operationActive) {
+        const activeElement = document.activeElement;
+        focusedElementBeforeOperation = activeElement instanceof HTMLElement && main.contains(activeElement) ?
+            activeElement : null;
+        window.clearTimeout(toastTimer);
+        toastTimer = null;
+        toast.classList.add('hidden');
+    }
+    setOperationActive(true);
+    showActivity(title, detail);
+}
+
+function finishOperation() {
+    setOperationActive(false);
+    hideActivity();
+    const focusedElement = focusedElementBeforeOperation;
+    focusedElementBeforeOperation = null;
+    if (focusedElement?.isConnected && focusedElement.tabIndex >= 0 && !focusedElement.matches(':disabled')) {
+        try {
+            focusedElement.focus({ preventScroll: true });
+        } catch {
+            focusedElement.focus();
+        }
+    }
+}
+
+document.addEventListener('focusin', event => {
+    if (operationActive && !('inert' in main) && main.contains(event.target)) event.target.blur?.();
+});
 function showActivity(title, detail) {
     activityTitle.textContent = title;
     activityDetail.textContent = detail;
@@ -346,9 +426,9 @@ function bindManualCheckButtons() {
         startManualCheck(button.dataset.runId, button.dataset.manualCheck)));
 }
 async function startManualCheck(runId, checkId) {
-    if (pollingId) return;
+    if (pollingId || operationActive) return;
     runPanel.querySelectorAll('.manual-check-button').forEach(button => button.disabled = true);
-    showActivity('Manual Sandbox check in progress',
+    beginOperation('Manual Sandbox check in progress',
         'Starting the repaired snapshot in a fresh, private Sandbox session.');
     runStatus.textContent = 'Running the selected manual check inside the repaired Sandbox snapshot…';
     try {
@@ -356,20 +436,21 @@ async function startManualCheck(runId, checkId) {
             'POST');
         await loadRun(runId);
     } catch (error) {
-        hideActivity();
+        finishOperation();
         runPanel.querySelectorAll('.manual-check-button').forEach(button => button.disabled = false);
         runStatus.textContent = `Manual check needs attention: ${error.message}`;
         showToast('error', 'Manual check did not start', error.message);
     }
 }
 async function refreshPreflight() {
-    if (preflightInProgress) return;
+    if (preflightInProgress || operationActive) return;
     if (preflightCircuitUntil > Date.now()) {
         renderPreflightCircuit('No more requests are sent during the cooldown.');
         return;
     }
     clearPreflightCircuit();
     preflightInProgress = true;
+    beginOperation('Checking platform readiness', 'Contacting Token Factory, the Nebius Sandbox, and Tavily configuration.');
     refreshButton.disabled = true;
     refreshButton.textContent = 'Checking…';
     continueButton.classList.add('hidden');
@@ -432,7 +513,7 @@ async function refreshPreflight() {
         }
     } finally {
         preflightInProgress = false;
-        hideActivity();
+        finishOperation();
         if (preflightCircuitUntil <= Date.now()) {
             refreshButton.disabled = false;
             if (refreshButton.textContent === 'Checking…') refreshButton.textContent = 'Check platform readiness';
@@ -534,12 +615,12 @@ async function loadRun(id) {
             runButton.disabled = true;
             newRun.classList.add('hidden');
             const lastStep = (run.toolSteps || []).at(-1);
-            showActivity(manualCheck ? 'Manual Sandbox check in progress' : 'Maintenance run in progress',
+            beginOperation(manualCheck ? 'Manual Sandbox check in progress' : 'Maintenance run in progress',
                 manualCheck ? `${manualCheck.title}: ${manualCheck.status}` : lastStep?.detail || run.phase);
             pollingId = window.setTimeout(() => loadRun(id), 1200);
         } else {
             pollingId = null;
-            hideActivity();
+            finishOperation();
             runButton.disabled = false;
             newRun.classList.remove('hidden');
             const latestManualCheck = (run.manualChecks || []).at(-1);
@@ -563,17 +644,18 @@ async function loadRun(id) {
         }
     } catch (error) {
         pollingId = null;
-        hideActivity();
+        finishOperation();
         runButton.disabled = false;
+        runPanel.querySelectorAll('.manual-check-button').forEach(button => button.disabled = false);
         runStatus.textContent = `Action needs attention: ${error.message}`;
         showToast('error', 'Run update failed', error.message);
     }
 }
 async function startRun() {
-    if (!preflightReady || pollingId) return;
+    if (!preflightReady || pollingId || operationActive) return;
     runButton.disabled = true;
     newRun.classList.add('hidden');
-    showActivity('Starting maintenance run', 'Applying the fixed safety policy before any Sandbox action.');
+    beginOperation('Starting maintenance run', 'Applying the fixed safety policy before any Sandbox action.');
     runStatus.textContent = 'Starting the selected policy-constrained path…';
     runPlaceholder.classList.remove('hidden');
     runPlaceholder.innerHTML =
@@ -585,7 +667,7 @@ async function startRun() {
         const result = await api(`/maintenance/runs?scenario=${encodeURIComponent(selectedScenario)}`, 'POST');
         await loadRun(result.id);
     } catch (error) {
-        hideActivity();
+        finishOperation();
         runButton.disabled = false;
         runStatus.textContent = `Action needs attention: ${error.message}`;
         runPlaceholder.innerHTML = `<h3>Run did not start</h3><p>${escapeHtml(error.message)}</p>`;
